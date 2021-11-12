@@ -1,1 +1,1 @@
-# MeetEU
+# MeetEU Project
