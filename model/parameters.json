@@ -1,0 +1,15 @@
+{
+  "activation_function": "elu",
+  "datset_path": "/home/arnoldtl/",
+  "dataset_name": "GMXYZ_chr7",
+  "epoch_num": 5000,
+  "learning_rate": 0.00005,
+  "n_channels": 16,
+  "n_mincut_layer": 1,
+  "graph_matrix_representation": "laplacian",
+  "optimizer": "adam",
+  "output_directory": "/home/arnoldtl/test_output_gnn_meeteu/",
+  "scaling_factor": 100000,
+  "type_laplacian": "weighted_laplacian",
+  "weight_decay": 0.05
+}

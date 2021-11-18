@@ -1,0 +1,5 @@
+{
+  "output_directory": "/home/arnoldtl/test_output_gnn_meeteu/",
+  "paths_predicted_tads_per_tad_prediction_methods": ["/home/arnoldtl/meeteu/Arrowhead.npy", "/home/arnoldtl/meeteu/TopDom.npy", "/home/arnoldtl/meeteu/SpectralTAD.npy", "/home/arnoldtl/meeteu/Ashoor.npy", "/home/arnoldtl/meeteu/MinCutTAD.npy"],
+  "tad_prediction_methods": ["Arrowhead", "TopDom", "SpectralTAD", "Ashoor", "MinCutTAD"]
+}
