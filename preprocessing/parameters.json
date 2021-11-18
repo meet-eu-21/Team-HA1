@@ -1,0 +1,11 @@
+{
+  "arrowhead_solution_directory": "/data/analysis/uk_bb/intergenics/data/genopheno/scrnaseq/miscellaneous/meeteu/www.lcqb.upmc.fr/meetu/dataforstudent/TAD/",
+  "cell_lines": ["GMXYZ", "sdjg"],
+  "chromosomes": [3, 5, 6],"genomic_annotations_directory": "/data/analysis/ag-reils/ag-reils-shared/Hi-C/meeteu/encode_data",
+  "dataset_name": "GMXYZ_sdjg_chr3_5_6",
+  "hic_matrix_directory": "/data/analysis/uk_bb/intergenics/data/genopheno/scrnaseq/miscellaneous/meeteu/www.lcqb.upmc.fr/meetu/dataforstudent/HiC/",
+  "output_directory": "/home/arnoldtl/test_output_gnn_meeteu/",
+  "scaling_factor": 100000,
+  "threshold_graph_vertex_filtering": ,
+  "threshold_graph_edge_filtering": "None"
+}
