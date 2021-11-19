@@ -10,9 +10,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 #https://github.com/FilippoMB/Spectral-Clustering-with-Graph-Neural-Networks-for-Graph-Pooling/blob/master/Clustering.py
+#https://github.com/pyg-team/pytorch_geometric/blob/74245f3a680c1f6fd1944623e47d9e677b43e827/torch_geometric/nn/dense/mincut_pool.py
+#https://github.com/convei-lab/toptimize/blob/c4ef429c9174d8819279533ed8aead0fd2973791/toptimize/examples/proteins_mincut_pool.py
 
-
-
+'''
 
 X_1 = GraphConvSkip(P['n_channels'],
                     kernel_initializer='he_normal',
@@ -28,11 +29,7 @@ k: number of output nodes;
 
 #https://github.com/danielegrattarola/spektral/blob/master/spektral/layers/pooling/mincut_pool.py
 
-
-
-
-
-
+'''
 
 class MinCutTAD(nn.Module):
     def __init__(self, parameters, n_clust):
