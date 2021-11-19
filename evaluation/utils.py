@@ -84,3 +84,19 @@ def venn_diagram_visualization(parameters, tad_prediction_methods, predicted_tad
 
     plt.savefig(os.path.join(parameters["output_path"], "evaluation", "venn_diagrams",
                              "Venn_diagram_of_" + "_".join(tad_prediction_methods) + ".png"))
+
+def genomic_annotations_histogram(parameters, genomic_feature, X, labels):
+
+    for index, genomic_feature in enumerate(parameters["node_feature_encoding"]):
+        X_tad = X[labels == 1]
+        X_notad = X[labels == 0]
+
+        distribution_genomic_feature_X_tad = X_tad.T[index].flatten()
+        distribution_genomic_feature_X_notad = X_notad.T[index].flatten()
+
+        plt.hist(distribution_genomic_feature_X_tad, 50, alpha=0.5, label='x')
+        plt.hist(distribution_genomic_feature_X_notad, 50, alpha=0.5, label='y')
+        plt.legend(loc='upper right')
+        #plt.show()
+        plt.savefig(os.path.join(parameters["output_path"], "evaluation", "venn_diagrams",
+                                 "Distribution_of_" + genomic_feature + "for_tad_and_notad_genomic_bins.png"))

@@ -1,7 +1,6 @@
 import numpy as np
-from sklearn.cluster import spectral_clustering
 from utils import load_parameters, set_up_logger, load_data, generate_metrics_plots, choose_optimal_n_clust, metrics_calculation, calculate_laplacian, normalized_adjacency, save_tad_list
-from model import MinCutTAD
+from mincuttad import MinCutTAD
 import pandas as pd
 import os
 import argparse
@@ -30,15 +29,6 @@ def train(model, data, parameters, device):
     time_list = []
     # TODO
     #WE KIND OF ONLY WANT TO KNOW WHETHER ALL TADs ARE IN THE RIGHT CLUSTER NOT WETHER THE REST IS IN ARBITRARY CLUSTER
-
-    silhouette_score_list_baseline = []
-    silhouette_samples_list_baseline = []
-    homogeneity_score_list_baseline = []
-    completeness_score_list_baseline = []
-    v_measure_score_list_baseline = []
-    calinski_harabasz_score_list_baseline = []
-    davies_bouldin_score_list_baseline = []
-    time_list_baseline = []
 
     if parameters["optimizer"] == "adam":
         optimizer = torch.optim.Adam(model.parameters(),  #################model.parameters()
@@ -75,6 +65,8 @@ def train(model, data, parameters, device):
             labels = np.argmax(labels, axis=1)
             end_time_mincutad = time.time()
             time_list.append(start_time_mincutad - end_time_mincutad)
+            # TODO
+            predicted_tad = 0
 
             silhouette_score, silhouette_samples, homogeneity_score, completeness_score, v_measure_score, calinski_harabasz_score, davies_bouldin_score = metrics_calculation(
                 X, labels, labels_true)
@@ -86,24 +78,6 @@ def train(model, data, parameters, device):
             calinski_harabasz_score_list.append(calinski_harabasz_score)
             davies_bouldin_score_list.append(davies_bouldin_score)
 
-            #Baseline experiment
-            start_time_baseline = time.time()
-            labels = spectral_clustering(X, n_clusters=n_clust, eigen_solver='arpack')
-            end_time_baseline = time.time()
-            time_list_baseline.append(start_time_baseline - end_time_baseline)
-            # Check whether result really is labels
-
-
-            silhouette_score, silhouette_samples, homogeneity_score, completeness_score, v_measure_score, calinski_harabasz_score, davies_bouldin_score = metrics_calculation(
-                X, labels, labels_true)
-            silhouette_score_list_baseline.append(silhouette_score)
-            silhouette_samples_list_baseline.append(silhouette_samples)
-            homogeneity_score_list_baseline.append(homogeneity_score)
-            completeness_score_list_baseline.append(completeness_score)
-            v_measure_score_list_baseline.append(v_measure_score)
-            calinski_harabasz_score_list_baseline.append(calinski_harabasz_score)
-            davies_bouldin_score_list_baseline.append(davies_bouldin_score)
-
         else:
             logger.info("A maximum silhouette score has been detected. Further clustering has been stopped. Evaluation scripts are now generated.")
             break
@@ -113,11 +87,7 @@ def train(model, data, parameters, device):
                    columns =["Number clusters", "Calculation time algorithm", "Silhouette score", "Silhouette scores of genomic locations (bins)", "Homogeneity score", "Completeness score", "V measure score", "Calinski Harabasz score", "Davies Bouldin score"])
     score_metrics_clustering.to_pickle(os.path.join(parameters["output_directory"], "score_metrics_clustering_on_" + parameters["dataset_name"] + "_activation_function_" + parameters["activation_function"] + "_learning_rate_" + parameters["learning_rate"] + "_n_channels_" + parameters["n_channels"] + "_optimizer_" + parameters["optimizer"] + "_type_laplacian_" + parameters["type_laplacian"] + "_weight_decay_" + parameters["weight_decay"] + ".pickle"))
 
-    score_metrics_clustering_baseline = pd.DataFrame(list(zip(n_clust_list, silhouette_score_list_baseline, silhouette_samples_list_baseline, homogeneity_score_list_baseline, completeness_score_list_baseline, davies_bouldin_score_list_baseline, calinski_harabasz_score_list_baseline, davies_bouldin_score_list_baseline)),
-                   columns =["Number clusters", "Calculation time algorithm", "Silhouette score", "Silhouette scores of genomic locations (bins)", "Homogeneity score", "Completeness score", "V measure score", "Calinski Harabasz score", "Davies Bouldin score"])
-    score_metrics_clustering_baseline.to_pickle(os.path.join(parameters["output_directory"], "score_metrics_clustering_baseline.pickle"))
-
-
+    return score_metrics_clustering, predicted_tad
 
 if __name__ == "__main__":
 
@@ -135,10 +105,9 @@ if __name__ == "__main__":
     data = load_data(parameters, device)
     model = MinCutTAD(parameters).to(device)
 
-    score_metrics_clustering, score_metrics_clustering_baseline, predicted_tad = train(model, data, parameters, device)
+    score_metrics_clustering, predicted_tad = train(model, data, parameters, device)
 
     generate_metrics_plots(score_metrics_clustering)
-    generate_metrics_plots(score_metrics_clustering_baseline)
 
     optimal_n_clust = choose_optimal_n_clust()
 

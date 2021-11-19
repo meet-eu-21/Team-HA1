@@ -1,11 +1,19 @@
 {
   "arrowhead_solution_directory": "/data/analysis/uk_bb/intergenics/data/genopheno/scrnaseq/miscellaneous/meeteu/www.lcqb.upmc.fr/meetu/dataforstudent/TAD/",
-  "cell_lines": ["GMXYZ", "sdjg"],
-  "chromosomes": [3, 5, 6],"genomic_annotations_directory": "/data/analysis/ag-reils/ag-reils-shared/Hi-C/meeteu/encode_data",
+  "cell_lines": ["GM12878", "sdjg"],
+  "chromosomes": [3, 5, 6],
   "dataset_name": "GMXYZ_sdjg_chr3_5_6",
+  "ensembl_gtf_file_path": "/data/analysis/ag-reils/ag-reils-shared/Hi-C/meeteu/ensembl/Homo_sapiens.GRCh37.55.gtf",
+  "ensembl_gtf_database_path": "/data/analysis/ag-reils/ag-reils-shared/Hi-C/meeteu/ensembl/Homo_sapiens.GRCh37.55.db",
+  "genomic_annotations_directory": "/data/analysis/ag-reils/ag-reils-shared/Hi-C/meeteu/encode_data",
+  "genomic_annotations_housekeeping_genes_dicts_directory": "./node_annotations/",
   "hic_matrix_directory": "/data/analysis/uk_bb/intergenics/data/genopheno/scrnaseq/miscellaneous/meeteu/www.lcqb.upmc.fr/meetu/dataforstudent/HiC/",
+  "node_feature_encoding": ["CTCF", "RAD21", "SMC3", "Number_HousekeepingGenes"],
   "output_directory": "/home/arnoldtl/test_output_gnn_meeteu/",
+  "resolution_hic_matrix": 100000,
+  "resolution_hic_matrix_string": "100kb",
   "scaling_factor": 100000,
-  "threshold_graph_vertex_filtering": ,
-  "threshold_graph_edge_filtering": "None"
+  "threshold_graph_vertex_filtering": "None",
+  "threshold_graph_edge_filtering": "None",
+  "translation_ensembl_geneid_to_external_geneid": "./ressources/translation_ensembl_gene_to_external_gene_name.csv"
 }
