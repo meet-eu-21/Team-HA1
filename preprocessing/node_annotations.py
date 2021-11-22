@@ -80,6 +80,39 @@ def combine_genomic_annotations_and_housekeeping_genes(genomic_annotations, hous
     return 0
 
 
+def generate_dict_target_genes(chr_list=None, parameters):
+    if chr_list is not None:
+        chromosomes = chr_list
+    else:
+        chromosomes = list(parameters["genomic_annotations_CTCF"].chroms().keys())
+        
+    dict_values = []
+    
+    for chromosome in chromosomes:
+        chr_len = parameters["genomic_annotations_CTCF"].chroms()[chromosome]
+        gbins = [x for x in range(0, chr_len, parameters["scaling_factor"])]
+        
+        annot_CTCF = [np.sum(parameters["genomic_annotations_CTCF"].values(chromosome, gbin, (gbin+(parameters["scaling_factor"]-1)))) for gbin in gbins[:-1]]
+        annot_RAD21 = [np.sum(parameters["genomic_annotations_RAD21"].values(chromosome, gbin, (gbin+(parameters["scaling_factor"]-1)))) for gbin in gbins[:-1]]
+        annot_SMC3 = [np.sum(parameters["genomic_annotations_SMC3"].values(chromosome, gbin, (gbin+(parameters["scaling_factor"]-1)))) for gbin in gbins[:-1]]
+
+        positions = [(x+1) for x in range(int(np.floor(chr_len/parameters["scaling_factor"])))]
+        values = [(annot_CTCF[i], annot_RAD21[i], annot_SMC3[i]) for i in range(len(annot_CTCF))]
+        dict_values.append(dict(zip(positions, values)))
+    
+    dict_target_genes = dict(zip(chromosomes, dict_values))
+    return dict_target_genes
+
+
+def get_annotation_matrix(dictionary):
+    dictionary_annotation_matrices = dict.fromkeys(dictionary.keys(), None)
+    for chromosome in dictionary.keys():
+        annotation_matrix = np.zeros((len(list(dictionary[chromosome].values())), 4))
+        annotation_matrix[[(x-1) for x in list(dictionary[chromosome].keys())], :3] = list(dictionary[chromosome].values())
+        annotation_matrix[[(x-1) for x in list(dictionary[chromosome].keys())], 3] = np.nan # INSERT values of housekeeping genes instead of nan
+        dictionary_annotation_matrices[chromosome] = annotation_matrix
+    return dictionary_annotation_matrices
+
 
 if __name__ == "__main__":
 
