@@ -21,7 +21,7 @@ def load_dicts_genomic_annotations(parameters):
 
 def load_housekeeping_genes(parameters):
 
-    housekeeping_genes = pd.read_csv("./data/Housekeeping_GenesHuman.csv", delimiter=";")
+    housekeeping_genes = pd.read_csv("./ressources/Housekeeping_GenesHuman.csv", delimiter=";")
 
     housekeeping_genes = list(housekeeping_genes["Gene.name"])
 

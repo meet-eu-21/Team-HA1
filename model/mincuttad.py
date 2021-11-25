@@ -31,6 +31,100 @@ k: number of output nodes;
 
 '''
 
+
+'''
+Example stacking several layers:
+
+class Residual(nn.Module):
+    def __init__(self, in_channels, num_hiddens, num_residual_hiddens):
+        super(Residual, self).__init__()
+        self._block = nn.Sequential(
+            nn.ReLU(True),
+            nn.Conv2d(in_channels=in_channels,
+                      out_channels=num_residual_hiddens,
+                      kernel_size=3, stride=1, padding=1, bias=False),
+            nn.ReLU(True),
+            nn.Conv2d(in_channels=num_residual_hiddens,
+                      out_channels=num_hiddens,
+                      kernel_size=1, stride=1, bias=False)
+        )
+    
+    def forward(self, x):
+        return x + self._block(x)
+
+
+class ResidualStack(nn.Module):
+    def __init__(self, in_channels, num_hiddens, num_residual_layers, num_residual_hiddens):
+        super(ResidualStack, self).__init__()
+        self._num_residual_layers = num_residual_layers
+        self._layers = nn.ModuleList([Residual(in_channels, num_hiddens, num_residual_hiddens)
+                             for _ in range(self._num_residual_layers)])
+
+    def forward(self, x):
+        for i in range(self._num_residual_layers):
+            x = self._layers[i](x)
+        return F.relu(x)
+'''
+
+'''
+model = MincutPool(num_features=stats['num_features'], num_classes=stats['num_classes'],
+                   max_num_nodes=stats['max_num_nodes'], hidden=args.hidden_dim,
+                   pooling_type=args.pooling_type, num_layers=args.num_layers, encode_edge=encode_edge).to(device)
+
+optimizer = Adam(model.parameters(), lr=args.lr)
+scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, min_lr=1e-5,
+                              patience=args.lr_decay_patience, verbose=True)
+
+if args.dataset == 'ZINC':
+    train = train_regression
+    evaluate = evaluate_regression
+
+train_sup_losses, train_lp_losses, train_entropy_losses = [], [], []
+val_sup_losses, val_lp_losses, val_entropy_losses = [], [], []
+test_sup_losses, test_lp_losses, test_entropy_losses = [], [], []
+val_accuracies, test_accuracies = [], []
+
+epochs_no_improve = 0  # used for early stopping
+for epoch in range(1, args.max_epochs + 1):
+
+    # train
+    train_sup_loss, train_lp_loss, train_entropy_loss = \
+        train(model, optimizer, train_loader, device)
+
+    # validation
+    val_acc, val_sup_loss, val_lp_loss, val_entropy_loss \
+        = evaluate(model, val_loader, device, evaluator=evaluator)
+
+    # test
+    test_acc, test_sup_loss, test_lp_loss, test_entropy_loss = \
+        evaluate(model, test_loader, device, evaluator=evaluator)
+
+    val_accuracies.append(val_acc)
+    test_accuracies.append(test_acc)
+
+    train_sup_losses.append(train_sup_loss)
+    train_lp_losses.append(train_lp_loss)
+    train_entropy_losses.append(train_entropy_loss)
+
+    val_sup_losses.append(val_sup_loss)
+    val_lp_losses.append(val_lp_loss)
+    val_entropy_losses.append(val_entropy_loss)
+
+    test_sup_losses.append(test_sup_loss)
+    test_lp_losses.append(test_lp_loss)
+    test_entropy_losses.append(test_entropy_loss)
+
+    if (epoch-1) % args.interval == 0:
+        print(f'{epoch:03d}: Train Sup Loss: {train_sup_loss:.3f}, '
+          f'Val Sup Loss: {val_sup_loss:.3f}, Val Acc: {val_accuracies[-1]:.3f}, '
+          f'Test Sup Loss: {test_sup_loss:.3f}, Test Acc: {test_accuracies[-1]:.3f}')
+
+    scheduler.step(val_acc)
+        
+   
+'''
+
+
 class MinCutTAD(nn.Module):
     def __init__(self, parameters, n_clust):
         super(MinCutTAD, self).__init__()

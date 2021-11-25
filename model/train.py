@@ -7,10 +7,32 @@ import argparse
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 import time
 
+def load_optimizer(parameters):
 
-def train(model, data, parameters, device):
+    if parameters["optimizer"] == "adam":
+        optimizer = torch.optim.Adam(model.parameters(),  #################model.parameters()
+                                     lr=parameters["learning_rate"])
+
+    elif parameters["optimizer"] == "adagrad":
+        optimizer = torch.optim.Adagrad(model.parameters(),  #################model.parameters()
+                                        lr=parameters["learning_rate"],
+                                        weight_decay=parameters["weight_decay"])
+    optimizer.zero_grad()
+
+    scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, min_lr=1e-5,
+                                  patience=args.lr_decay_patience, verbose=True)
+
+    return optimizer, scheduler
+
+def save_model(model, n_clust, parameters):
+
+    model_dict = model.state_dict()
+    torch.save(model_dict, f'{parameters["output_path"]}/models/mincut_model_{n_clust}_{parameters["dataset_name"]}_activation_function_{parameters["activation_function"]}_learning_rate_{parameters["learning_rate"]}_n_channels_{parameters["n_channels"]}_optimizer_{parameters["optimizer"]}_type_laplacian_{parameters["type_laplacian"]}_weight_decay_{parameters["weight_decay"]}.model')
+
+def train(model, data, optimizer, parameters, device):
 
     # TODO
     #Make this ready for several matrices together in data.
@@ -29,14 +51,6 @@ def train(model, data, parameters, device):
     time_list = []
     # TODO
     #WE KIND OF ONLY WANT TO KNOW WHETHER ALL TADs ARE IN THE RIGHT CLUSTER NOT WETHER THE REST IS IN ARBITRARY CLUSTER
-
-    if parameters["optimizer"] == "adam":
-        optimizer = torch.optim.Adam(model.parameters(),  #################model.parameters()
-                                     lr=parameters["learning_rate"])
-    elif parameters["optimizer"] == "adagrad":
-        optimizer = torch.optim.Adagrad(model.parameters(),  #################model.parameters()
-                                        lr=parameters["learning_rate"],
-                                        weight_decay=parameters["weight_decay"])
 
     #NOTSURE WHETHER NEEDED
     criterion = nn.NLLLoss()
@@ -61,10 +75,30 @@ def train(model, data, parameters, device):
             logger.info("Clustering with " + str(n_clust) + " clusters.")
 
             start_time_mincutad = time.time()
-            labels = MinCutTAD(X, edge_index)
+            labels = model(X, edge_index)
+
+            '''
+            out, lp_loss, entropy_loss = model(data)
+            out = F.log_softmax(out, dim=-1)
+            loss = F.nll_loss(out, data.y.view(-1), reduction='mean')
+            if model.pooling_type == 'mlp':
+                (lp_loss + loss + entropy_loss).backward()
+            else:
+                loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0)
+            optimizer.step()
+            total_ce_loss += loss.item() * data.num_graphs
+            total_lp_loss += lp_loss.item() * data.num_graphs
+            total_e_loss += entropy_loss.item() * data.num_graphs
+            return total_ce_loss / len(loader.dataset), total_lp_loss / len(loader.dataset), total_e_loss / len(loader.dataset)
+            '''
+
             labels = np.argmax(labels, axis=1)
             end_time_mincutad = time.time()
             time_list.append(start_time_mincutad - end_time_mincutad)
+
+            save_model(model, n_clust, parameters)
+
             # TODO
             predicted_tad = 0
 
@@ -99,13 +133,20 @@ if __name__ == "__main__":
     parameters = load_parameters(path_parameters_json)
     os.makedirs(parameters["output_path"], exist_ok=True)
     os.makedirs(os.path.join(parameters["output_path"], "training"), exist_ok=True)
+    os.makedirs(os.path.join(parameters["output_path"], "models"), exist_ok=True)
     set_up_logger(parameters)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     data = load_data(parameters, device)
     model = MinCutTAD(parameters).to(device)
+    optimizer, scheduler = load_optimizer(parameters)
 
-    score_metrics_clustering, predicted_tad = train(model, data, parameters, device)
+    model.train()
+    score_metrics_clustering, predicted_tad = train(model, data, optimizer, parameters, device)
+
+    model.evaluate()
+
+
 
     generate_metrics_plots(score_metrics_clustering)
 
