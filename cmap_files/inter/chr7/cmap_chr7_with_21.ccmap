@@ -1,0 +1,26 @@
+{
+    "path2matrix":"cmap_chr7_with_21.npbin",
+    "xticks":[
+        "0",
+        "159200000"
+    ],
+    "yticks":[
+        "0",
+        "48200000"
+    ],
+    "binsize":"100000",
+    "title":null,
+    "xlabel":"chr7",
+    "ylabel":"21",
+    "shape":[
+        "1592",
+        "482"
+    ],
+    "minvalue":"1.0",
+    "maxvalue":"1617.0",
+    "bNoData":null,
+    "bLog":false,
+    "dtype":"float32",
+    "state":"compressed",
+    "matrix":null
+}
