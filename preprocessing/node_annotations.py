@@ -2,22 +2,53 @@ import pandas as pd
 import numpy as np
 import os
 import argparse
-from utils import load_parameters
+import pyBigWig
+from utils import load_parameters, generate_chromosome_lists
 import gffutils
 import pickle
 
 def load_genomic_annotations(parameters):
     return 0
 
-def generate_dict_genomic_annotations():
+def generate_dict_genomic_annotations(parameters, cell_line):
+    _, chromosomes_str_long, chromosomes_str_short = generate_chromosome_lists(parameters)
+    dict_values = []
+    if cell_line == 'GM12878':
+        file_CTCF = pyBigWig.open(parameters["genomic_annotations_CTCF_GM12878"])
+        file_RAD21 = pyBigWig.open(parameters["genomic_annotations_RAD21_GM12878"])
+        file_SMC3 = pyBigWig.open(parameters["genomic_annotations_SMC3_GM12878"])
+    elif cell_line == 'IMR-90':
+        file_CTCF = pyBigWig.open(parameters["genomic_annotations_CTCF_IMR-90"])
+        file_RAD21 = pyBigWig.open(parameters["genomic_annotations_RAD21_IMR-90"])
+        file_SMC3 = pyBigWig.open(parameters["genomic_annotations_SMC3_IMR-90"])
+    else:
+        raise ValueError('Wrong cell line used, use one of GM12878 or IMR-90')
 
-    return 0
+    for chromosome in chromosomes_str_long:
+        chr_len = file_CTCF.chroms()[chromosome]
+        gbins = [x for x in range(0, chr_len, parameters["scaling_factor"])]
 
-def load_dicts_genomic_annotations(parameters):
+        annot_CTCF = [np.sum(file_CTCF.values(chromosome, gbin, (gbin + (parameters["scaling_factor"] - 1))))
+                      for gbin in gbins[:-1]]
+        annot_RAD21 = [np.sum(file_RAD21.values(chromosome, gbin, (gbin + (parameters["scaling_factor"] - 1)))) for gbin in gbins[:-1]]
+        annot_SMC3 = [np.sum(file_SMC3.values(chromosome, gbin, (gbin + (parameters["scaling_factor"] - 1))))
+                      for gbin in gbins[:-1]]
 
-    parameters["genomic_annotations_housekeeping_genes_dicts_directory"]
+        positions = [(x + 1) for x in range(int(np.floor(chr_len / parameters["scaling_factor"])))]
+        values = [(annot_CTCF[i], annot_RAD21[i], annot_SMC3[i]) for i in range(len(annot_CTCF))]
+        dict_values.append(dict(zip(positions, values)))
 
-    return 0
+    #dict_target_genes = dict(zip(chromosomes_str_long, dict_values))
+    dict_target_genes = dict(zip(chromosomes_str_short, dict_values))
+    with open(os.path.join(parameters["genomic_annotations_housekeeping_genes_dicts_directory"], "genomic_anotations_" + cell_line + "_" + parameters["resolution_hic_matrix_string"] + ".pickle"), 'wb') as handle:
+        pickle.dump(dict_target_genes, handle, protocol=pickle.DEFAULT_PROTOCOL)
+
+def load_dict_genomic_annotations(parameters, cell_line):
+    with open(os.path.join(parameters["genomic_annotations_housekeeping_genes_dicts_directory"], "genomic_annotations_" + cell_line +
+                           "_" + parameters["resolution_hic_matrix_string"] + ".pickle"), 'rb') as handle:
+        dict_target_genes = pickle.load(handle)
+
+    return dict_target_genes
 
 def load_housekeeping_genes(parameters):
 
@@ -75,43 +106,17 @@ def load_dict_housekeeping_genes(parameters):
     return dict_housekeeping_genes
 
 
-def combine_genomic_annotations_and_housekeeping_genes(genomic_annotations, housekeeping_genes):
-
-    return 0
-
-
-def generate_dict_target_genes(chr_list=None, parameters):
-    if chr_list is not None:
-        chromosomes = chr_list
-    else:
-        chromosomes = list(parameters["genomic_annotations_CTCF"].chroms().keys())
-        
-    dict_values = []
-    
-    for chromosome in chromosomes:
-        chr_len = parameters["genomic_annotations_CTCF"].chroms()[chromosome]
-        gbins = [x for x in range(0, chr_len, parameters["scaling_factor"])]
-        
-        annot_CTCF = [np.sum(parameters["genomic_annotations_CTCF"].values(chromosome, gbin, (gbin+(parameters["scaling_factor"]-1)))) for gbin in gbins[:-1]]
-        annot_RAD21 = [np.sum(parameters["genomic_annotations_RAD21"].values(chromosome, gbin, (gbin+(parameters["scaling_factor"]-1)))) for gbin in gbins[:-1]]
-        annot_SMC3 = [np.sum(parameters["genomic_annotations_SMC3"].values(chromosome, gbin, (gbin+(parameters["scaling_factor"]-1)))) for gbin in gbins[:-1]]
-
-        positions = [(x+1) for x in range(int(np.floor(chr_len/parameters["scaling_factor"])))]
-        values = [(annot_CTCF[i], annot_RAD21[i], annot_SMC3[i]) for i in range(len(annot_CTCF))]
-        dict_values.append(dict(zip(positions, values)))
-    
-    dict_target_genes = dict(zip(chromosomes, dict_values))
-    return dict_target_genes
-
-
-def get_annotation_matrix(dictionary):
-    dictionary_annotation_matrices = dict.fromkeys(dictionary.keys(), None)
-    for chromosome in dictionary.keys():
-        annotation_matrix = np.zeros((len(list(dictionary[chromosome].values())), 4))
-        annotation_matrix[[(x-1) for x in list(dictionary[chromosome].keys())], :3] = list(dictionary[chromosome].values())
-        annotation_matrix[[(x-1) for x in list(dictionary[chromosome].keys())], 3] = np.nan # INSERT values of housekeeping genes instead of nan
-        dictionary_annotation_matrices[chromosome] = annotation_matrix
-    return dictionary_annotation_matrices
+def combine_genomic_annotations_and_housekeeping_genes(parameters, dict_genomic_annotations, dict_housekeeping_genes, cell_line):
+    for chromosome in dict_genomic_annotations.keys():
+        annotation_matrix = np.zeros((len(list(dict_genomic_annotations[chromosome].values())), 4))
+        annotation_matrix[[(x - 1) for x in list(dict_genomic_annotations[chromosome].keys())], :3] = list(
+            dict_genomic_annotations[chromosome].values())
+        for bin in dict_housekeeping_genes[chromosome].keys():
+            annotation_matrix[(bin-1), 3] = dict_housekeeping_genes[chromosome][bin]
+        with open(os.path.join(parameters["genomic_annotations_housekeeping_genes_dicts_directory"],
+                               "annotation_matrix_" +  cell_line + "_chr" + chromosome + "_" + parameters["resolution_hic_matrix_string"] + ".pickle"),
+                  'wb') as handle:
+            pickle.dump(annotation_matrix, handle, protocol=pickle.DEFAULT_PROTOCOL)
 
 
 if __name__ == "__main__":
@@ -125,12 +130,10 @@ if __name__ == "__main__":
 
     for cell_line in parameters["cell_lines"]:
         if cell_line == "GM12878" or cell_line == "IMR-90":
-            #if not os.path.isfile(os.path.join(parameters["genomic_annotations_housekeeping_genes_dicts_directory"], "genomic_anotations_" + cell_line + "_" + parameters["resolution_hic_matrix_string"] + ".pickle")):
-            #    generate_dict_genomic_annotations(parameters, cell_line)
-            # TODO
-            #PREPARATION FOR STEFFI
-            print("hi")
+            if not os.path.isfile(os.path.join(parameters["genomic_annotations_housekeeping_genes_dicts_directory"], "genomic_anotations_" + cell_line + "_" + parameters["resolution_hic_matrix_string"] + ".pickle")):
+                generate_dict_genomic_annotations(parameters, cell_line)
         if not os.path.isfile(os.path.join(parameters["genomic_annotations_housekeeping_genes_dicts_directory"], "housekeeping_genes_" + parameters["resolution_hic_matrix_string"] + ".pickle")):
             housekeeping_genes = load_housekeeping_genes(parameters)
             gtf = ensembl_gtf_database(parameters)
             generate_dict_housekeeping_genes(housekeeping_genes, gtf, parameters)
+
