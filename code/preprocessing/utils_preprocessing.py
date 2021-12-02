@@ -1,18 +1,35 @@
+import sys
+sys.path.insert(1, './preprocessing/')
+sys.path.insert(1, './model/')
+sys.path.insert(1, './evaluation/')
+
 import json
 import logging
 import os
 import numpy as np
 
 def load_parameters(path_parameters_json):
+    '''
+    Function loads the parameters from the provided parameters.json file in a dictionary.
+
+    :param path_parameters_json: path of parameters.json file
+    :return parameters: dictionary with parameters set in parameters.json file.
+    '''
     with open(path_parameters_json) as parameters_json:
         parameters = json.load(parameters_json)
 
     return parameters
 
 def set_up_logger(parameters):
+    '''
+    Function sets a global logger for documentation of information and errors in the execution of the chosen script.
+
+    :param parameters: dictionary with parameters set in parameters.json file.
+    '''
+
     logger = logging.getLogger('preprocessing')
     logger.setLevel(logging.DEBUG)
-    fh = logging.FileHandler(os.path.join(parameters["output_path"], 'preprocessing', 'preprocessing.log'))
+    fh = logging.FileHandler(os.path.join(parameters["output_directory"], 'preprocessing', 'preprocessing.log'))
     fh.setLevel(logging.DEBUG)
     logger.addHandler(fh)
 
@@ -22,6 +39,11 @@ def set_up_logger(parameters):
 
 
 def generate_chromosome_lists(parameters):
+    '''
+
+    :param parameters: dictionary with parameters set in parameters.json file
+    :return:
+    '''
     if parameters["chromosomes"] == "all":
         chromsomes_int = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, "X"]
         chromosomes_str_long = ["chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10",
@@ -53,6 +75,14 @@ def extract_bins(graph_matrices, chromosome_list_graph_matrices):
 '''
 
 def save_adjacency_matrix_node_features_labels(parameters, graph, node_features, arrowhead_solution):
+    '''
+
+    :param parameters: dictionary with parameters set in parameters.json file
+    :param graph:
+    :param node_features:
+    :param arrowhead_solution:
+    :return:
+    '''
 
     np.save(node_features, os.path.join(parameters["output_directory"], parameters["dataset_name"] + "_X.npy"))
     np.save(graph, os.path.join(parameters["output_directory"], parameters["dataset_name"] + "_edge_index.npy"))

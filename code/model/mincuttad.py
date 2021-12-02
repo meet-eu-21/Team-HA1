@@ -1,10 +1,15 @@
+import sys
+sys.path.insert(1, './preprocessing/')
+sys.path.insert(1, './model/')
+sys.path.insert(1, './evaluation/')
+
 import neptune.new as neptune
 
 import pandas as pd
 import numpy as np
 import os
 from torch_geometric.nn.dense import dense_mincut_pool, dense_diff_pool
-from torch_geometric import GraphConv
+from torch_geometric.nn.conv import GraphConv
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

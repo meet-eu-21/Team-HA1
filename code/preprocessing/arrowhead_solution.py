@@ -1,10 +1,14 @@
+import sys
+sys.path.insert(1, './preprocessing/')
+sys.path.insert(1, './model/')
+sys.path.insert(1, './evaluation/')
+
 import pandas as pd
 import os
 import numpy as np
 import argparse
-from utils import load_parameters
-from model.utils import load_data, save_tad_list
-
+from utils_preprocessing import load_parameters
+from utils_model import load_data, save_tad_list
 
 def load_arrowhead_solution(parameters):
 
@@ -56,8 +60,8 @@ if __name__ == "__main__":
     path_parameters_json = args.path_parameters_json
 
     parameters = load_parameters(path_parameters_json)
-    os.makedirs(parameters["output_path"], exist_ok=True)
-    os.makedirs(os.path.join(parameters["output_path"], "preprocessing"), exist_ok=True)
+    os.makedirs(parameters["output_directory"], exist_ok=True)
+    os.makedirs(os.path.join(parameters["output_directory"], "preprocessing"), exist_ok=True)
 
     data = load_data(parameters, 'cpu')
 

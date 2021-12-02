@@ -1,3 +1,8 @@
+import sys
+sys.path.insert(1, './preprocessing/')
+sys.path.insert(1, './model/')
+sys.path.insert(1, './evaluation/')
+
 import pandas as pd
 import numpy as np
 import networkx as nx

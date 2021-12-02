@@ -1,4 +1,4 @@
-#!/bin/bash
+#! /bin/bash
 
 while getopts ":j:" OPTION; do
     case $OPTION in
@@ -21,6 +21,6 @@ source /home/arnoldtl/.bashrc
 
 conda activate meeteu_arnoldt_kittner2
 
-bash ../../preprocessing/arrowhead_solution.py -d "$JSON"
+python ./preprocessing/arrowhead_solution.py -d "$JSON"
 
 exit 0;

@@ -10,9 +10,9 @@
   "hic_matrix_directory": "/data/analysis/uk_bb/intergenics/data/genopheno/scrnaseq/miscellaneous/meeteu/www.lcqb.upmc.fr/meetu/dataforstudent/HiC/",
   "node_feature_encoding": ["CTCF", "RAD21", "SMC3", "Number_HousekeepingGenes"],
   "output_directory": "/home/arnoldtl/test_output_gnn_meeteu/",
-  "resolution_hic_matrix": 100000,
-  "resolution_hic_matrix_string": "100kb",
-  "scaling_factor": 100000,
+  "resolution_hic_matrix": 25000,
+  "resolution_hic_matrix_string": "25kb",
+  "scaling_factor": 25000,
   "threshold_graph_vertex_filtering": "None",
   "threshold_graph_edge_filtering": "None",
   "translation_ensembl_geneid_to_external_geneid": "./ressources/translation_ensembl_gene_to_external_gene_name.csv"

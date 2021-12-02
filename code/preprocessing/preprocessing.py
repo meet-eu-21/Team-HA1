@@ -1,4 +1,9 @@
-from utils import load_parameters, set_up_logger, generate_chromosome_lists, extract_bins, save_adjacency_matrix_node_features_labels
+import sys
+sys.path.insert(1, './code/preprocessing/')
+sys.path.insert(1, './code/model/')
+sys.path.insert(1, './code/evaluation/')
+
+from utils_preprocessing import load_parameters, set_up_logger, generate_chromosome_lists, save_adjacency_matrix_node_features_labels
 from graph_generation import load_adjacency_matrix, statistics_adjacency_matrix, graph_filtering
 from visualization import hic_map_generation, histogram_interaction_count_hic_map
 from arrowhead_solution import load_arrowhead_solution
@@ -14,8 +19,8 @@ if __name__ == "__main__":
     path_parameters_json = args.path_parameters_json
 
     parameters = load_parameters(path_parameters_json)
-    os.makedirs(parameters["output_path"], exist_ok=True)
-    os.makedirs(os.path.join(parameters["output_path"], "preprocessing"), exist_ok=True)
+    os.makedirs(parameters["output_directory"], exist_ok=True)
+    os.makedirs(os.path.join(parameters["output_directory"], "preprocessing"), exist_ok=True)
     set_up_logger(parameters)
 
     parameters["chromsomes_int"], parameters["chromosomes_str_long"], parameters["chromosomes_str_short"] = generate_chromosome_lists(parameters)

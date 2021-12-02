@@ -1,3 +1,8 @@
+import sys
+sys.path.insert(1, './preprocessing/')
+sys.path.insert(1, './model/')
+sys.path.insert(1, './evaluation/')
+
 import pandas as pd
 import numpy as np
 import os
@@ -10,6 +15,12 @@ import logging
 from itertools import combinations
 
 def load_parameters(path_parameters_json):
+    '''
+    Function loads the parameters from the provided parameters.json file in a dictionary.
+
+    :param path_parameters_json: path of parameters.json file
+    :return parameters: dictionary with parameters set in parameters.json file
+    '''
 
     with open(path_parameters_json) as parameters_json:
         parameters = json.load(parameters_json)
@@ -17,10 +28,15 @@ def load_parameters(path_parameters_json):
     return parameters
 
 def set_up_logger(parameters):
+    '''
+    Function sets a global logger for documentation of information and errors in the execution of the chosen script.
+
+    :param parameters: dictionary with parameters set in parameters.json file
+    '''
 
     logger = logging.getLogger('evaluation')
     logger.setLevel(logging.DEBUG)
-    fh = logging.FileHandler(os.path.join(parameters["output_path"], 'evaluation', 'evaluation.log'))
+    fh = logging.FileHandler(os.path.join(parameters["output_directory"], 'evaluation', 'evaluation.log'))
     fh.setLevel(logging.DEBUG)
     logger.addHandler(fh)
 
@@ -29,6 +45,12 @@ def set_up_logger(parameters):
         logger.info(parameter + ": " + str(parameters[parameter]))
 
 def load_predicted_tads_per_tad_prediction_methods(parameters):
+    '''
+
+    :param parameters: dictionary with parameters set in parameters.json file
+    :return:
+    '''
+
     predicted_tads_per_tad_prediction_methods = []
 
     for path in parameters["paths_predicted_tads_per_tad_prediction_methods"]:
@@ -38,6 +60,13 @@ def load_predicted_tads_per_tad_prediction_methods(parameters):
     return predicted_tads_per_tad_prediction_methods
 
 def jaccard_index(tad_prediction_methods, predicted_tads_per_tad_prediction_methods):
+    '''
+
+    :param tad_prediction_methods:
+    :param predicted_tads_per_tad_prediction_methods:
+    :return:
+    '''
+
     jaccard_index_tad_prediction_methods_combinations = {}
 
     for tad_prediction_methods_combination in list(combinations(tad_prediction_methods, 2)):
@@ -56,6 +85,14 @@ def jaccard_index_weighted(parameters, tad_prediction_methods, predicted_tads_pe
     return 0
 
 def venn_diagram_visualization(parameters, tad_prediction_methods, predicted_tads_per_tad_prediction_methods):
+    '''
+
+
+    :param parameters: dictionary with parameters set in parameters.json file
+    :param tad_prediction_methods:
+    :param predicted_tads_per_tad_prediction_methods:
+    :return:
+    '''
 
     if len(tad_prediction_methods) == 2:
 
@@ -82,10 +119,18 @@ def venn_diagram_visualization(parameters, tad_prediction_methods, predicted_tad
     else:
         raise ValueError("Only the predicted TADs for one method has been provided. No Venn diagram can be created.")
 
-    plt.savefig(os.path.join(parameters["output_path"], "evaluation", "venn_diagrams",
+    plt.savefig(os.path.join(parameters["output_directory"], "evaluation", "venn_diagrams",
                              "Venn_diagram_of_" + "_".join(tad_prediction_methods) + ".png"))
 
-def genomic_annotations_histogram(parameters, genomic_feature, X, labels):
+def genomic_annotations_histogram(parameters, X, labels):
+    '''
+
+    :param parameters: dictionary with parameters set in parameters.json file
+    :param genomic_feature:
+    :param X:
+    :param labels:
+    :return:
+    '''
 
     for index, genomic_feature in enumerate(parameters["node_feature_encoding"]):
         X_tad = X[labels == 1]
@@ -98,5 +143,5 @@ def genomic_annotations_histogram(parameters, genomic_feature, X, labels):
         plt.hist(distribution_genomic_feature_X_notad, 50, alpha=0.5, label='y')
         plt.legend(loc='upper right')
         #plt.show()
-        plt.savefig(os.path.join(parameters["output_path"], "evaluation", "venn_diagrams",
+        plt.savefig(os.path.join(parameters["output_directory"], "evaluation", "venn_diagrams",
                                  "Distribution_of_" + genomic_feature + "for_tad_and_notad_genomic_bins.png"))

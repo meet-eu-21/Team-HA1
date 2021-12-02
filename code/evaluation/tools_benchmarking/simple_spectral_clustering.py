@@ -1,5 +1,10 @@
+import sys
+sys.path.insert(1, './preprocessing/')
+sys.path.insert(1, './model/')
+sys.path.insert(1, './evaluation/')
+
 from sklearn.cluster import spectral_clustering
-from utils import load_parameters, generate_metrics_plots, choose_optimal_n_clust, metrics_calculation, save_tad_list
+from utils_model import load_parameters, generate_metrics_plots, choose_optimal_n_clust, metrics_calculation, save_tad_list
 import pandas as pd
 import os
 import time
@@ -67,8 +72,8 @@ if __name__ == "__main__":
     path_parameters_json = args.path_parameters_json
 
     parameters = load_parameters(path_parameters_json)
-    os.makedirs(parameters["output_path"], exist_ok=True)
-    os.makedirs(os.path.join(parameters["output_path"], "training"), exist_ok=True)
+    os.makedirs(parameters["output_directory"], exist_ok=True)
+    os.makedirs(os.path.join(parameters["output_directory"], "training"), exist_ok=True)
 
     score_metrics_clustering_baseline, predicted_tad = train(model, data, parameters, device)
 

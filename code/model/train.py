@@ -1,5 +1,10 @@
+import sys
+sys.path.insert(1, './preprocessing/')
+sys.path.insert(1, './model/')
+sys.path.insert(1, './evaluation/')
+
 import numpy as np
-from utils import load_parameters, set_up_logger, load_data, generate_metrics_plots, choose_optimal_n_clust, metrics_calculation, calculate_laplacian, normalized_adjacency, save_tad_list
+from utils_model import load_parameters, set_up_logger, load_data, generate_metrics_plots, choose_optimal_n_clust, metrics_calculation, calculate_laplacian, normalized_adjacency, save_tad_list
 from mincuttad import MinCutTAD
 import pandas as pd
 import os
@@ -30,7 +35,7 @@ def load_optimizer(parameters):
 def save_model(model, n_clust, parameters):
 
     model_dict = model.state_dict()
-    torch.save(model_dict, f'{parameters["output_path"]}/models/mincut_model_{n_clust}_{parameters["dataset_name"]}_activation_function_{parameters["activation_function"]}_learning_rate_{parameters["learning_rate"]}_n_channels_{parameters["n_channels"]}_optimizer_{parameters["optimizer"]}_type_laplacian_{parameters["type_laplacian"]}_weight_decay_{parameters["weight_decay"]}.model')
+    torch.save(model_dict, f'{parameters["output_directory"]}/models/mincut_model_{n_clust}_{parameters["dataset_name"]}_activation_function_{parameters["activation_function"]}_learning_rate_{parameters["learning_rate"]}_n_channels_{parameters["n_channels"]}_optimizer_{parameters["optimizer"]}_type_laplacian_{parameters["type_laplacian"]}_weight_decay_{parameters["weight_decay"]}.model')
 
 def train(model, data, optimizer, parameters, device):
 
@@ -131,9 +136,9 @@ if __name__ == "__main__":
     path_parameters_json = args.path_parameters_json
 
     parameters = load_parameters(path_parameters_json)
-    os.makedirs(parameters["output_path"], exist_ok=True)
-    os.makedirs(os.path.join(parameters["output_path"], "training"), exist_ok=True)
-    os.makedirs(os.path.join(parameters["output_path"], "models"), exist_ok=True)
+    os.makedirs(parameters["output_directory"], exist_ok=True)
+    os.makedirs(os.path.join(parameters["output_directory"], "training"), exist_ok=True)
+    os.makedirs(os.path.join(parameters["output_directory"], "models"), exist_ok=True)
     set_up_logger(parameters)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

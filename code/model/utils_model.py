@@ -1,3 +1,8 @@
+import sys
+sys.path.insert(1, './preprocessing/')
+sys.path.insert(1, './model/')
+sys.path.insert(1, './evaluation/')
+
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import silhouette_score, silhouette_samples, homogeneity_score, completeness_score, v_measure_score, calinski_harabasz_score, davies_bouldin_score
@@ -7,23 +12,38 @@ from torch_geometric.utils import add_self_loops, remove_self_loops
 from torch_geometric.utils.num_nodes import maybe_num_nodes
 from torch_geometric.data import Data
 from torch_scatter import scatter_add
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import json
 import logging
 import os
 import scipy as sp
 
 def load_parameters(path_parameters_json):
+    '''
+    Function loads the parameters from the provided parameters.json file in a dictionary.
+
+    :param path_parameters_json: path of parameters.json file
+    :return parameters: dictionary with parameters set in parameters.json file.
+    '''
 
     with open(path_parameters_json) as parameters_json:
         parameters = json.load(parameters_json)
 
     return parameters
 
+
 def set_up_logger(parameters):
+    '''
+    Function sets a global logger for documentation of information and errors in the execution of the chosen script.
+
+    :param parameters: dictionary with parameters set in parameters.json file.
+    '''
 
     logger = logging.getLogger('training')
     logger.setLevel(logging.DEBUG)
-    fh = logging.FileHandler(os.path.join(parameters["output_path"], 'training', 'training.log'))
+    fh = logging.FileHandler(os.path.join(parameters["output_directory"], 'training', 'training.log'))
     fh.setLevel(logging.DEBUG)
     logger.addHandler(fh)
 
@@ -32,6 +52,11 @@ def set_up_logger(parameters):
         logger.info(parameter + ": " + str(parameters[parameter]))
 
 def load_data(parameters):
+    '''
+
+    :param parameters: dictionary with parameters set in parameters.json file
+    :return:
+    '''
 
     X = np.load(os.path.join(parameters["dataset_path"], parameters["dataset_name"] + "_X.npy"))
     edge_index = np.load(os.path.join(parameters["dataset_path"], parameters["dataset_name"] + "_edge_index.npy"))
@@ -50,6 +75,12 @@ def load_data(parameters):
     return data
 
 def generate_metrics_plots(score_metrics_clustering, output_directory):
+    '''
+
+    :param score_metrics_clustering:
+    :param output_directory:
+    :return:
+    '''
 
     for metric in list(score_metrics_clustering.columns)[1:]:
         plt.plot("Number clusters", metric, data=score_metrics_clustering)
@@ -67,12 +98,24 @@ def generate_metrics_plots(score_metrics_clustering, output_directory):
     plt.plt.savefig(os.path.join(output_directory, "training", "All_metrics_vs_n_clust.png"))
 
 def choose_optimal_n_clust(silhouette_score_list):
+    '''
+
+    :param silhouette_score_list:
+    :return:
+    '''
 
     optimal_n_clust = np.where(np.array(silhouette_score_list) == max(silhouette_score_list))[0][0]
 
     return optimal_n_clust
 
 def metrics_calculation(X, labels, labels_true):
+    '''
+
+    :param X:
+    :param labels:
+    :param labels_true:
+    :return:
+    '''
 
     # labels-array-like of shape (n_samples,) - Predicted labels for each sample.
 
@@ -91,6 +134,13 @@ def metrics_calculation(X, labels, labels_true):
     return silhouette_score_calc, silhouette_samples_calc, homogeneity_score_calc, completeness_score_calc, v_measure_score_calc, calinski_harabasz_score_calc, davies_bouldin_score_calc
 
 def calculate_laplacian(type_laplacian, edge_index, X):
+    '''
+
+    :param type_laplacian:
+    :param edge_index:
+    :param X:
+    :return:
+    '''
 
     if type_laplacian == "unweighted_laplacian":
         get_laplacian(edge_index = edge_index, normalization = "sym")
@@ -192,6 +242,11 @@ def get_laplacian(edge_index, edge_weight: Optional[torch.Tensor] = None,
 '''
 
 def normalized_adjacency(edge_index):
+    '''
+
+    :param edge_index:
+    :return:
+    '''
     #INSPIRATION: https://github.com/danielegrattarola/spektral/blob/e99d5955a80eeae3c4605d8479f53aaa0ef5dbf2/spektral/utils/convolution.py#L25
     degrees = np.power(np.array(edge_index.sum(1)), -0.5).ravel()
     degrees[np.isinf(degrees)] = 0.0
@@ -220,5 +275,12 @@ def normalized_adjacency(A, symmetric=True):
 '''
 
 def save_tad_list(parameters, tad_list, tool):
+    '''
 
-    np.save(tad_list, os.path.join(parameters["output_path"], "training", tool + ".npy"))
+    :param parameters: dictionary with parameters set in parameters.json file
+    :param tad_list:
+    :param tool:
+    :return:
+    '''
+
+    np.save(tad_list, os.path.join(parameters["output_directory"], "training", tool + ".npy"))
