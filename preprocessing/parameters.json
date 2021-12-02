@@ -5,6 +5,7 @@
   "dataset_name": "GMXYZ_sdjg_chr3_5_6",
   "ensembl_gtf_file_path": "/data/analysis/ag-reils/ag-reils-shared/Hi-C/meeteu/ensembl/Homo_sapiens.GRCh37.55.gtf",
   "ensembl_gtf_database_path": "/data/analysis/ag-reils/ag-reils-shared/Hi-C/meeteu/ensembl/Homo_sapiens.GRCh37.55.db",
+  "genomic_annotations": ["CTCF", "RAD21", "SMC3", "housekeeping_genes"],
   "genomic_annotations_directory": "/data/analysis/ag-reils/ag-reils-shared/Hi-C/meeteu/encode_data",
   "genomic_annotations_CTCF_GM12878": "../ENCODE_data/ENCFF074FXJ.bigWig",
   "genomic_annotations_CTCF_IMR-90": "../ENCODE_data/ENCFF276MRX.bigWig",
