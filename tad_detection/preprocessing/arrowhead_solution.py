@@ -16,12 +16,12 @@ def load_arrowhead_solution(parameters):
     #TODO
     #AUF MEHRERE ZELLEN &CHROMOSOMEN ANPASSEN
 
-    solution_cell_line = []
-    solution_nodes_cell_line = []
     solution = []
     solution_nodes = []
 
     for cell_line in parameters["cell_lines"]:
+        solution_cell_line = []
+        solution_nodes_cell_line = []
         for chromosome in parameters["chromosomes_str_short"]:
 
             df_solution = pd.read_csv(os.path.join(parameters["arrowhead_solution_directory"], "GSE63525_" + cell_line + "_primary+replicate_Arrowhead_domainlist.txt"), delimiter="\t")

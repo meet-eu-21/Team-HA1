@@ -138,9 +138,10 @@ def load_dict_housekeeping_genes(parameters):
 
 
 def combine_genomic_annotations_and_housekeeping_genes(parameters, dict_genomic_annotations, dict_housekeeping_genes):
-    annotation_matrices_list = []
+
     annotation_matrices_list_cell_lines = []
     for cell_line in parameters["cell_lines"]:
+        annotation_matrices_list = []
         for chromosome in dict_genomic_annotations[cell_line].keys():
             annotation_matrix = np.zeros((len(dict_genomic_annotations[cell_line][chromosome]), len(parameters["genomic_annotations"])))
 

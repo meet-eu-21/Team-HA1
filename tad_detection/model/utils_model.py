@@ -75,10 +75,7 @@ def load_data(parameters):
 
     return X, edge_index, y
 
-def split_data(X, edge_index, y):
-
-    #TODO:
-    #ADAPT FOR MULTIPLE CELL LINES
+def split_data(parameters, X, edge_index, y):
 
     if X.shape[0] == 2:
         logger.info("Two cell lines are inputted. A cross-validation on both datasets will be performed. One cell line is used for training and the other one for testing and validation.")
@@ -86,7 +83,7 @@ def split_data(X, edge_index, y):
         data_train_cross_2 = Data(x=torch.from_numpy(X[1]), edge_index=torch.from_numpy([1]), y=torch.from_numpy(y[1]))
 
         test_chromosomes = random.sample(list(range(0, X[0].shape[1])), np.round(X[0].shape[1]/2))
-        val_chromosomes = list(set(range(0, X[0].shape[1]) - test_chromosomes))
+        val_chromosomes = list(set(range(0, X[0].shape[1])) - set(test_chromosomes))
 
         data_test_cross_1 = Data(x=torch.from_numpy(X[1]), edge_index=torch.from_numpy([1]), y=torch.from_numpy(y[1])) #[test_chromosomes,:]
         data_test_cross_2 = Data(x=torch.from_numpy(X[0]), edge_index=torch.from_numpy([0]), y=torch.from_numpy(y[0])) #[test_chromosomes,:]
@@ -96,7 +93,9 @@ def split_data(X, edge_index, y):
 
         return data_train_cross_1, data_test_cross_1, data_val_cross_1, data_train_cross_2, data_test_cross_2, data_val_cross_2
 
-    train_chromosomes = random.sample(list(range(0, X[0].shape[1])), np.round(X[0].shape[1] / 2))
+    train_chromosomes = random.sample(list(range(0, X[0].shape[1])), X[0].shape[1] * parameters["proportion_train_set"])
+    test_chromosomes = random.sample(list(set(range(0, X[0].shape[1])) - set(train_chromosomes)), X[0].shape[1] * parameters["proportion_test_set"])
+    val_chromosomes = list(set(range(0, X[0].shape[1])) - set(train_chromosomes) - set(test_chromosomes))
 
     data_train = Data(x=torch.from_numpy(X), edge_index=torch.from_numpy(edge_index), y=torch.from_numpy(y))
     data_test = Data(x=torch.from_numpy(X), edge_index=torch.from_numpy(edge_index), y=torch.from_numpy(y))
@@ -108,13 +107,15 @@ def split_data(X, edge_index, y):
 
     return data_train, data_test, data_val, 0, 0, 0
 
-def torch_geometric_data_generation_dataloader():
+def torch_geometric_data_generation_dataloader(data_train_cross_1, data_test_cross_1, data_val_cross_1, data_train_cross_2, data_test_cross_2, data_val_cross_2):
 
 
-    dataloader_train = DataLoader(data_list_train, batch_size=2)  # 32
+    return dataloader_train_cross_1, dataloader_test_cross_1, dataloader_val_cross_1, dataloader_train_cross_2, dataloader_test_cross_2, dataloader_val_cross_2
+
+    dataloader_train = DataLoader(data_list_train, batch_size=1)  # 32
     dataloader_train
 
-    return dataloader_train, dataloader_test, dataloader_val
+    return dataloader_train, dataloader_test, dataloader_val, 0, 0, 0
 
 def generate_metrics_plots(score_metrics_clustering, output_directory):
     '''

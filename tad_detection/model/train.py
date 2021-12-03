@@ -6,7 +6,7 @@ sys.path.insert(1, './tad_detection/evaluation/')
 
 import numpy as np
 from utils_general import load_parameters, set_up_logger
-from utils_model import load_data, generate_metrics_plots, choose_optimal_n_clust, metrics_calculation, calculate_laplacian, normalized_adjacency, save_tad_list
+from utils_model import load_data, split_data, torch_geometric_data_generation_dataloader, generate_metrics_plots, choose_optimal_n_clust, metrics_calculation, calculate_laplacian, normalized_adjacency, save_tad_list
 from mincuttad import MinCutTAD
 import pandas as pd
 import os
@@ -136,6 +136,7 @@ if __name__ == "__main__":
     parser.add_argument("--path_parameters_json", help=" to JSON with parameters.", type=str, required=True)
     args = parser.parse_args()
     path_parameters_json = args.path_parameters_json
+    # path_parameters_json = ./tad_detection/model/
 
     parameters = load_parameters(path_parameters_json)
     os.makedirs(parameters["output_directory"], exist_ok=True)
@@ -145,7 +146,10 @@ if __name__ == "__main__":
     logger.debug('Start training logger.')
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    data = load_data(parameters, device)
+    X, edge_index, y = load_data(parameters, device)
+    data_train_cross_1, data_test_cross_1, data_val_cross_1, data_train_cross_2, data_test_cross_2, data_val_cross_2 = split_data(parameters, X, edge_index, y)
+    dataloader_train_cross_1, dataloader_test_cross_1, dataloader_val_cross_1, dataloader_train_cross_2, dataloader_test_cross_2, dataloader_val_cross_2 = torch_geometric_data_generation_dataloader(data_train_cross_1, data_test_cross_1, data_val_cross_1, data_train_cross_2, data_test_cross_2, data_val_cross_2)
+
     model = MinCutTAD(parameters).to(device)
     optimizer, scheduler = load_optimizer(parameters)
 
