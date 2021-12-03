@@ -77,15 +77,14 @@ def load_adjacency_matrix(parameters):
 def load_ccmap_file(parameters):
 
     adjacency_matrices_list = []
-    adjacency_matrices_list_cell_line = []
-
     adjacency_matrices_source_information_list = []
-    adjacency_matrices_source_information_list_cell_line = []
 
     for cell_line in parameters["cell_lines"]:
+        adjacency_matrices_list_cell_line = []
+        adjacency_matrices_source_information_list_cell_line = []
         for chromosome in parameters["chromosomes_str_short"]:
             adjacency_matrices_source_information_list_cell_line.append(cell_line + "-" + chromosome)
-            adjacency_matrix_chromosome = gmlib.ccmap.load_ccmap("./cmap_files/intra/cmap_" + chromosome + ".ccmap")
+            adjacency_matrix_chromosome = gmlib.ccmap.load_ccmap(f"./cmap_files/{cell_line}/intra/cmap_" + chromosome + ".ccmap")
             adjacency_matrix_chromosome.make_readable()
             adjacency_matrices_list_cell_line.append(np.array(adjacency_matrix_chromosome.matrix))
 
