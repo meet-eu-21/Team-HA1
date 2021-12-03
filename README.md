@@ -2,11 +2,11 @@
 
 The preprocessing of 
 
-An exact description of the preprocessing scripts can be found in the folder ```./preprocessing``` and the associated [README](code/preprocessing/README.md).
+An exact description of the preprocessing scripts can be found in the folder ```./preprocessing``` and the associated [README](tad_detection/preprocessing/README.md).
 
-An exact description of the training scripts can be found in the folder ```./model``` and the associated [README](code/model/README.md).
+An exact description of the training scripts can be found in the folder ```./model``` and the associated [README](tad_detection/model/README.md).
 
-An exact description of the evaluation scripts can be found in the folder ```./evaluation``` and the associated [README](code/model/README.md).
+An exact description of the evaluation scripts can be found in the folder ```./evaluation``` and the associated [README](tad_detection/model/README.md).
 
 
 

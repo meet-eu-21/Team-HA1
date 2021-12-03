@@ -1,13 +1,14 @@
 import sys
-sys.path.insert(1, './preprocessing/')
-sys.path.insert(1, './model/')
-sys.path.insert(1, './evaluation/')
+sys.path.insert(1, './tad_detection/')
+sys.path.insert(1, './tad_detection/preprocessing/')
+sys.path.insert(1, './tad_detection/model/')
+sys.path.insert(1, './tad_detection/evaluation/')
 
 import pandas as pd
 import numpy as np
 import os
 import argparse
-from utils_preprocessing import load_parameters
+from utils_general import load_parameters, set_up_logger
 import gffutils
 import pickle
 
@@ -94,6 +95,10 @@ if __name__ == "__main__":
     path_parameters_json = args.path_parameters_json
 
     parameters = load_parameters(path_parameters_json)
+    os.makedirs(parameters["output_directory"], exist_ok=True)
+    os.makedirs(os.path.join(parameters["output_directory"], "preprocessing"), exist_ok=True)
+    logger = set_up_logger('node_annotations', parameters)
+    logger.debug('Start node_annotations logger.')
 
     for cell_line in parameters["cell_lines"]:
         if cell_line == "GM12878" or cell_line == "IMR-90":

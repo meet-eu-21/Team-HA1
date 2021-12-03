@@ -1,10 +1,12 @@
 import sys
-sys.path.insert(1, './preprocessing/')
-sys.path.insert(1, './model/')
-sys.path.insert(1, './evaluation/')
+sys.path.insert(1, './tad_detection/')
+sys.path.insert(1, './tad_detection/preprocessing/')
+sys.path.insert(1, './tad_detection/model/')
+sys.path.insert(1, './tad_detection/evaluation/')
 
 from sklearn.cluster import spectral_clustering
-from utils_model import load_parameters, generate_metrics_plots, choose_optimal_n_clust, metrics_calculation, save_tad_list
+from utils_general import load_parameters, set_up_logger
+from utils_model import load_data, generate_metrics_plots, choose_optimal_n_clust, metrics_calculation, save_tad_list
 import pandas as pd
 import os
 import time
@@ -74,8 +76,12 @@ if __name__ == "__main__":
     parameters = load_parameters(path_parameters_json)
     os.makedirs(parameters["output_directory"], exist_ok=True)
     os.makedirs(os.path.join(parameters["output_directory"], "training"), exist_ok=True)
+    logger = set_up_logger('simple_spectral_clustering', parameters)
+    logger.debug('Start simple_spectral_clustering logger.')
 
-    score_metrics_clustering_baseline, predicted_tad = train(model, data, parameters, device)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    data = load_data(parameters, device)
+    score_metrics_clustering_baseline, predicted_tad = train(data, parameters)
 
     generate_metrics_plots(score_metrics_clustering_baseline)
 

@@ -1,10 +1,12 @@
 import sys
-sys.path.insert(1, './code/preprocessing/')
-sys.path.insert(1, './code/model/')
-sys.path.insert(1, './code/evaluation/')
+sys.path.insert(1, './tad_detection/')
+sys.path.insert(1, './tad_detection/preprocessing/')
+sys.path.insert(1, './tad_detection/model/')
+sys.path.insert(1, './tad_detection/evaluation/')
 
-from utils_preprocessing import load_parameters, set_up_logger, generate_chromosome_lists, save_adjacency_matrix_node_features_labels
-from graph_generation import load_adjacency_matrix, statistics_adjacency_matrix, graph_filtering
+from utils_general import load_parameters, set_up_logger
+from utils_preprocessing import generate_chromosome_lists, save_adjacency_matrix_node_features_labels
+from graph_generation import load_ccmap_file, statistics_adjacency_matrix, graph_filtering
 from visualization import hic_map_generation, histogram_interaction_count_hic_map
 from arrowhead_solution import load_arrowhead_solution
 from node_annotations import load_genomic_annotations, load_housekeeping_genes, combine_genomic_annotations_and_housekeeping_genes
@@ -21,11 +23,12 @@ if __name__ == "__main__":
     parameters = load_parameters(path_parameters_json)
     os.makedirs(parameters["output_directory"], exist_ok=True)
     os.makedirs(os.path.join(parameters["output_directory"], "preprocessing"), exist_ok=True)
-    set_up_logger(parameters)
+    logger = set_up_logger('preprocessing', parameters)
+    logger.debug('Start preprocessing logger.')
 
     parameters["chromsomes_int"], parameters["chromosomes_str_long"], parameters["chromosomes_str_short"] = generate_chromosome_lists(parameters)
 
-    adjacency_matrices_list, adjacency_matrices_source_information_list = load_adjacency_matrix(parameters)
+    adjacency_matrices_list, adjacency_matrices_source_information_list = load_ccmap_file(parameters)
     statistics_adjacency_matrix(adjacency_matrices_list, adjacency_matrices_source_information_list)
     adjacency_matrices_list = graph_filtering(parameters, adjacency_matrices_list)
 

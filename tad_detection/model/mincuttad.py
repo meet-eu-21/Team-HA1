@@ -1,7 +1,11 @@
 import sys
-sys.path.insert(1, './preprocessing/')
-sys.path.insert(1, './model/')
-sys.path.insert(1, './evaluation/')
+sys.path.insert(1, './tad_detection/')
+sys.path.insert(1, './tad_detection/preprocessing/')
+sys.path.insert(1, './tad_detection/model/')
+sys.path.insert(1, './tad_detection/evaluation/')
+
+import logging
+logger = logging.getLogger('training')
 
 import neptune.new as neptune
 

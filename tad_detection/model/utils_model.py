@@ -1,7 +1,11 @@
 import sys
-sys.path.insert(1, './preprocessing/')
-sys.path.insert(1, './model/')
-sys.path.insert(1, './evaluation/')
+sys.path.insert(1, './tad_detection/')
+sys.path.insert(1, './tad_detection/preprocessing/')
+sys.path.insert(1, './tad_detection/model/')
+sys.path.insert(1, './tad_detection/evaluation/')
+
+import logging
+logger = logging.getLogger('training')
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -20,7 +24,7 @@ import logging
 import os
 import scipy as sp
 
-def load_parameters(path_parameters_json):
+def _old_load_parameters(path_parameters_json):
     '''
     Function loads the parameters from the provided parameters.json file in a dictionary.
 
@@ -34,7 +38,7 @@ def load_parameters(path_parameters_json):
     return parameters
 
 
-def set_up_logger(parameters):
+def _old_set_up_logger(parameters):
     '''
     Function sets a global logger for documentation of information and errors in the execution of the chosen script.
 

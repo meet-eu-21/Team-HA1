@@ -1,13 +1,14 @@
 import sys
-sys.path.insert(1, './preprocessing/')
-sys.path.insert(1, './model/')
-sys.path.insert(1, './evaluation/')
+sys.path.insert(1, './tad_detection/')
+sys.path.insert(1, './tad_detection/preprocessing/')
+sys.path.insert(1, './tad_detection/model/')
+sys.path.insert(1, './tad_detection/evaluation/')
 
 import pandas as pd
 import os
 import numpy as np
 import argparse
-from utils_preprocessing import load_parameters
+from utils_general import load_parameters, set_up_logger
 from utils_model import load_data, save_tad_list
 
 def load_arrowhead_solution(parameters):
@@ -62,6 +63,8 @@ if __name__ == "__main__":
     parameters = load_parameters(path_parameters_json)
     os.makedirs(parameters["output_directory"], exist_ok=True)
     os.makedirs(os.path.join(parameters["output_directory"], "preprocessing"), exist_ok=True)
+    logger = set_up_logger('arrowhead_solution', parameters)
+    logger.debug('Start arrowhead_solution logger.')
 
     data = load_data(parameters, 'cpu')
 

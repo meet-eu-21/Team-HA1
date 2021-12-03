@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 
 def load_parameters(path_parameters_json):
     '''
@@ -14,12 +15,12 @@ def load_parameters(path_parameters_json):
 
     return parameters
 
-def set_up_logger(name):
+def set_up_logger(name, parameters):
     '''
     Function sets a global logger for documentation of information and errors in the execution of the chosen script.
 
     :param parameters: dictionary with parameters set in parameters.json file.
-    :return
+    :return :logger
     '''
 
     formatter = logging.Formatter(fmt='%(asctime)s - %(levelname)s - %(module)s - %(message)s')
@@ -27,8 +28,27 @@ def set_up_logger(name):
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
 
+    fh = logging.FileHandler(os.path.join(parameters["output_directory"], name, name + '.log'))
+    fh.setFormatter(formatter)
+
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
     logger.addHandler(handler)
+    logger.addHandler(fh)
+
+    logger.info("Start " + name + " with the following parameters:")
+    for parameter in parameters.keys():
+        logger.info(parameter + ": " + str(parameters[parameter]))
 
     return logger
+
+
+def _old_set_up_logger(parameters):
+    '''
+    Function sets a global logger for documentation of information and errors in the execution of the chosen script.
+
+    :param parameters: dictionary with parameters set in parameters.json file
+    '''
+
+    logger = logging.getLogger('evaluation')
+    logger.setLevel(logging.DEBUG)

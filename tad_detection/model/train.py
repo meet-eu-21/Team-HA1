@@ -1,10 +1,12 @@
 import sys
-sys.path.insert(1, './preprocessing/')
-sys.path.insert(1, './model/')
-sys.path.insert(1, './evaluation/')
+sys.path.insert(1, './tad_detection/')
+sys.path.insert(1, './tad_detection/preprocessing/')
+sys.path.insert(1, './tad_detection/model/')
+sys.path.insert(1, './tad_detection/evaluation/')
 
 import numpy as np
-from utils_model import load_parameters, set_up_logger, load_data, generate_metrics_plots, choose_optimal_n_clust, metrics_calculation, calculate_laplacian, normalized_adjacency, save_tad_list
+from utils_general import load_parameters, set_up_logger
+from utils_model import load_data, generate_metrics_plots, choose_optimal_n_clust, metrics_calculation, calculate_laplacian, normalized_adjacency, save_tad_list
 from mincuttad import MinCutTAD
 import pandas as pd
 import os
@@ -139,7 +141,8 @@ if __name__ == "__main__":
     os.makedirs(parameters["output_directory"], exist_ok=True)
     os.makedirs(os.path.join(parameters["output_directory"], "training"), exist_ok=True)
     os.makedirs(os.path.join(parameters["output_directory"], "models"), exist_ok=True)
-    set_up_logger(parameters)
+    logger = set_up_logger('training', parameters)
+    logger.debug('Start training logger.')
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     data = load_data(parameters, device)

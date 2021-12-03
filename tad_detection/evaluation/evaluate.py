@@ -1,11 +1,13 @@
 import sys
-sys.path.insert(1, './preprocessing/')
-sys.path.insert(1, './model/')
-sys.path.insert(1, './evaluation/')
+sys.path.insert(1, './tad_detection/')
+sys.path.insert(1, './tad_detection/preprocessing/')
+sys.path.insert(1, './tad_detection/model/')
+sys.path.insert(1, './tad_detection/evaluation/')
 
 import argparse
 import os
-from utils_evaluate import load_parameters, set_up_logger, load_predicted_tads_per_tad_prediction_methods, jaccard_index, venn_diagram_visualization
+from utils_general import load_parameters, set_up_logger
+from utils_evaluate import load_predicted_tads_per_tad_prediction_methods, jaccard_index, venn_diagram_visualization
 
 if __name__ == "__main__":
 
@@ -19,7 +21,8 @@ if __name__ == "__main__":
     os.makedirs(os.path.join(parameters["output_directory"], "evaluation"), exist_ok=True)
     os.makedirs(os.path.join(parameters["output_directory"], "evaluation", "venn_diagrams"), exist_ok=True)
     os.makedirs(os.path.join(parameters["output_directory"], "evaluation", "jaccard_indices"), exist_ok=True)
-    set_up_logger(parameters)
+    logger = set_up_logger('evaluation', parameters)
+    logger.debug('Start evaluation logger.')
 
     predicted_tads_per_tad_prediction_methods = load_predicted_tads_per_tad_prediction_methods(parameters)
 
