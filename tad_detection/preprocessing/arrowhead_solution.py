@@ -16,8 +16,10 @@ def load_arrowhead_solution(parameters):
     #TODO
     #AUF MEHRERE ZELLEN &CHROMOSOMEN ANPASSEN
 
-    df_solution_tuples_list = []
-    df_solution_nodes_list = []
+    solution_cell_line = []
+    solution_nodes_cell_line = []
+    solution = []
+    solution_nodes = []
 
     for cell_line in parameters["cell_lines"]:
         for chromosome in parameters["chromosomes_str_short"]:
@@ -28,23 +30,22 @@ def load_arrowhead_solution(parameters):
             df_solution["x1"] = df_solution["x1"].apply(lambda x: np.int(round(x/parameters["scaling_factor"], 0)))
             df_solution["x2"] = df_solution["x2"].apply(lambda x: np.int(round(x/parameters["scaling_factor"], 0)))
 
-            df_solution_tuples = []
+            solution_chromosome = []
 
             for index, row in df_solution.iterrows():
-                df_solution_tuples.append((row["x1"], row["x2"]))
-                df_solution_tuples.append((row["x2"], row["x1"]))
+                #df_solution_tuples.append((row["x1"], row["x2"]))
+                #df_solution_tuples.append((row["x2"], row["x1"]))
+                solution_chromosome.append(list(range(row["x1"], row["x2"]+1)))
 
-            df_solution_tuples_list.append(df_solution_tuples)
+            solution_nodes_chromosome = np.unique([node for tad_list in solution_chromosome for node in tad_list])
 
-            df_solution_nodes = []
+            solution_cell_line.append(solution_chromosome)
+            solution_nodes_cell_line.append(solution_nodes_chromosome)
 
-            for index, row in df_solution.iterrows():
-                df_solution_nodes.append(row["x1"])
-                df_solution_nodes.append(row["x2"])
+        solution.append(solution_cell_line)
+        solution_nodes.append(solution_nodes_cell_line)
 
-            df_solution_nodes_list.append(df_solution_nodes)
-
-    return df_solution_tuples_list, df_solution_nodes_list
+    return solution, solution_nodes
 
 def arrowhead_predicted_tad_list(nodes, df_solution_nodes_list):
 

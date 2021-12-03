@@ -87,7 +87,7 @@ def load_ccmap_file(parameters):
             adjacency_matrices_source_information_list_cell_line.append(cell_line + "-" + chromosome)
             adjacency_matrix_chromosome = gmlib.ccmap.load_ccmap("./cmap_files/intra/cmap_" + chromosome + ".ccmap")
             adjacency_matrix_chromosome.make_readable()
-            adjacency_matrices_list_cell_line.append(adjacency_matrix_chromosome.matrix)
+            adjacency_matrices_list_cell_line.append(np.array(adjacency_matrix_chromosome.matrix))
 
         adjacency_matrices_list.append(adjacency_matrices_list_cell_line)
         adjacency_matrices_source_information_list.append(adjacency_matrices_source_information_list_cell_line)
@@ -109,19 +109,19 @@ def statistics_adjacency_matrix(parameters, adjacency_matrices_list, adjacency_m
             adjacency_matrix_flatten = adjacency_matrix.flatten()
             adjacency_matrix_flatten = np.array(adjacency_matrix_flatten)
             adjacency_matrix_flatten = adjacency_matrix_flatten[adjacency_matrix_flatten != 0]
-            adjacency_matrix_flatten
+            #adjacency_matrix_flatten
 
-            logger.info("Minimum interaction value: " + np.quantile(adjacency_matrix_flatten, 0))
-            logger.info("0.1 quantile interaction value: " + np.quantile(adjacency_matrix_flatten, 0.1))
-            logger.info("0.2 quantile interaction value: " + np.quantile(adjacency_matrix_flatten, 0.2))
-            logger.info("0.3 quantile interaction value: " + np.quantile(adjacency_matrix_flatten, 0.3))
-            logger.info("0.4 quantile interaction value: " + np.quantile(adjacency_matrix_flatten, 0.4))
-            logger.info("0.5 quantile interaction value: " + np.quantile(adjacency_matrix_flatten, 0.5))
-            logger.info("0.6 quantile interaction value: " + np.quantile(adjacency_matrix_flatten, 0.6))
-            logger.info("0.7 quantile interaction value: " + np.quantile(adjacency_matrix_flatten, 0.7))
-            logger.info("0.8 quantile interaction value: " + np.quantile(adjacency_matrix_flatten, 0.8))
-            logger.info("0.9 quantile interaction value: " + np.quantile(adjacency_matrix_flatten, 0.9))
-            logger.info("Maximum interaction value: " + np.quantile(adjacency_matrix_flatten, 1.0))
+            logger.info("Minimum interaction value: " + str(np.quantile(adjacency_matrix_flatten, 0)))
+            logger.info("0.1 quantile interaction value: " + str(np.quantile(adjacency_matrix_flatten, 0.1)))
+            logger.info("0.2 quantile interaction value: " + str(np.quantile(adjacency_matrix_flatten, 0.2)))
+            logger.info("0.3 quantile interaction value: " + str(np.quantile(adjacency_matrix_flatten, 0.3)))
+            logger.info("0.4 quantile interaction value: " + str(np.quantile(adjacency_matrix_flatten, 0.4)))
+            logger.info("0.5 quantile interaction value: " + str(np.quantile(adjacency_matrix_flatten, 0.5)))
+            logger.info("0.6 quantile interaction value: " + str(np.quantile(adjacency_matrix_flatten, 0.6)))
+            logger.info("0.7 quantile interaction value: " + str(np.quantile(adjacency_matrix_flatten, 0.7)))
+            logger.info("0.8 quantile interaction value: " + str(np.quantile(adjacency_matrix_flatten, 0.8)))
+            logger.info("0.9 quantile interaction value: " + str(np.quantile(adjacency_matrix_flatten, 0.9)))
+            logger.info("Maximum interaction value: " + str(np.quantile(adjacency_matrix_flatten, 1.0)))
 
 
             plt.hist(adjacency_matrix_flatten, bins=10000)
@@ -132,27 +132,39 @@ def statistics_adjacency_matrix(parameters, adjacency_matrices_list, adjacency_m
 
             plt.gcf().set_size_inches(18.5, 18.5)
             #plt.show()
-            plt.savefig(parameters["output_directory"], "preprocessing", "histogram_interaction_values_in_adjacency_matrix_ " + source_information + ".png")
-
-
-
-
-
-
-
+            plt.savefig(os.path.join(parameters["output_directory"], "preprocessing", "histogram_interaction_values_in_adjacency_matrix_ " + source_information + ".png"))
 
 def graph_filtering(parameters, adjacency_matrices_list):
 
-    if parameters["threshold_graph_vertex_filtering"] != "None":
-        for adjacency_matrix in adjacency_matrices_list:
-            ###
-            genomic_bins = adjacency_matrix.shape[0]
-            genomic_bins_delete = set()
-            for genomic_bin in genomic_bins:
-                if len(adjacency_matrix[adjacency_matrix[genomic_bin] < parameters["threshold_graph_vertex_filtering"]]): #GROESER/ KLEINER DEFINIEREN, THEORETISCH KOENNTEN AUCH NEUE AUFTRETEN
-                    adjacency_matrix = adjacency_matrix[set(range(0, genomic_bins)) - set(genomic_bins_delete), set(range(0, genomic_bins)) - set(genomic_bins_delete)]
-    if parameters["threshold_graph_edge_filtering"] != "None":
-        for adjacency_matrix in adjacency_matrices_list:
-            adjacency_matrix[adjacency_matrix > parameters["threshold_graph_edge_filtering"]] = 0 #GROESER/ KLEINER DEFINIEREN
+    #TODO
+    #Add logger statistics here.
+    adjacency_matrices_list_filtered = adjacency_matrices_list
 
-    return adjacency_matrices_list
+    if parameters["threshold_graph_vertex_filtering"] != "None":
+        adjacency_matrices_list_filtered = []
+        adjacency_matrices_cell_line_filtered = []
+        for adjacency_matrices_cell_line in adjacency_matrices_list:
+            for adjacency_matrix in adjacency_matrices_cell_line:
+                ###
+                genomic_bins = adjacency_matrix.shape[0]
+                genomic_bins_delete = set()
+                for genomic_bin in range(0, genomic_bins-1):
+                    if len(adjacency_matrix[adjacency_matrix[genomic_bin] < parameters["threshold_graph_vertex_filtering"]]) < parameters["graph_vertex_filtering_min_val"]:
+                        genomic_bins_delete.add(genomic_bin)
+                adjacency_matrix = adjacency_matrix[list(set(range(0, genomic_bins-1)) - set(genomic_bins_delete)), :]
+                adjacency_matrix = adjacency_matrix[:, list(set(range(0, genomic_bins-1)) - set(genomic_bins_delete))]
+                adjacency_matrices_cell_line_filtered.append(adjacency_matrix)
+            adjacency_matrices_list_filtered.append(adjacency_matrices_cell_line_filtered)
+    if parameters["threshold_graph_edge_filtering"] != "None":
+        adjacency_matrices_list_filtered = []
+        adjacency_matrices_cell_line_filtered = []
+        for adjacency_matrices_cell_line in adjacency_matrices_list:
+            for adjacency_matrix in adjacency_matrices_cell_line:
+                for i, j in zip(range(0, adjacency_matrix.shape[0]-1), range(0, adjacency_matrix.shape[1]-1)):
+                    if adjacency_matrix[i,j] < parameters["threshold_graph_edge_filtering"]:
+                        adjacency_matrix[i,j] = 0
+
+                adjacency_matrices_cell_line_filtered.append(adjacency_matrix)
+            adjacency_matrices_list_filtered.append(adjacency_matrices_cell_line_filtered)
+
+    return adjacency_matrices_list_filtered

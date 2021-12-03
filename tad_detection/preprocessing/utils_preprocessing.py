@@ -65,20 +65,7 @@ def generate_chromosome_lists(parameters):
 
     return chromsomes_int, chromosomes_str_long, chromosomes_str_short
 
-'''
-def extract_bins(graph_matrices, chromosome_list_graph_matrices):
-
-    :param graph_matrices: adjacency matrices representing Hi-C graphs for a specific chromosome and cell line
-    :param chromosome_list_graph_matrices: list of chromosome names for each graph in graph_matrices
-    :return bins_chromosomes: bins for each chromosome
-
-    bins_chromosomes = []
-
-    for chromsome, graph in zip(chromosome_list_graph_matrices, graph_matrices):
-        graph.rows
-'''
-
-def save_adjacency_matrix_node_features_labels(parameters, graph, node_features, arrowhead_solution):
+def save_adjacency_matrix_node_features_labels(parameters, adjacency_matrices_list, adjacency_matrices_source_information_list, node_features_list, arrowhead_solution_list):
     '''
 
     :param parameters: dictionary with parameters set in parameters.json file
@@ -88,6 +75,7 @@ def save_adjacency_matrix_node_features_labels(parameters, graph, node_features,
     :return:
     '''
 
-    np.save(node_features, os.path.join(parameters["output_directory"], parameters["dataset_name"] + "_X.npy"))
-    np.save(graph, os.path.join(parameters["output_directory"], parameters["dataset_name"] + "_edge_index.npy"))
-    np.save(arrowhead_solution, os.path.join(parameters["output_directory"], parameters["dataset_name"] + "_y.npy"))
+    np.save(os.path.join(parameters["output_directory"], parameters["dataset_name"] + "_X.npy"), np.array(node_features_list))
+    np.save(os.path.join(parameters["output_directory"], parameters["dataset_name"] + "_edge_index.npy"), np.array(adjacency_matrices_list))
+    np.save(os.path.join(parameters["output_directory"], parameters["dataset_name"] + "_source_information.npy"), np.array(adjacency_matrices_source_information_list))
+    np.save(os.path.join(parameters["output_directory"], parameters["dataset_name"] + "_y.npy"), np.array(arrowhead_solution_list))
