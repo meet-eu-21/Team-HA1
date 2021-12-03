@@ -1,0 +1,26 @@
+{
+    "path2matrix":"cmap_8.npbin",
+    "xticks":[
+        "0",
+        "146400000"
+    ],
+    "yticks":[
+        "0",
+        "146400000"
+    ],
+    "binsize":"100000",
+    "title":null,
+    "xlabel":"8",
+    "ylabel":"8",
+    "shape":[
+        "1464",
+        "1464"
+    ],
+    "minvalue":"1.0",
+    "maxvalue":"20944.0",
+    "bNoData":null,
+    "bLog":false,
+    "dtype":"float32",
+    "state":"compressed",
+    "matrix":null
+}

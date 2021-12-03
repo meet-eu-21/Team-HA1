@@ -1,0 +1,26 @@
+{
+    "path2matrix":"cmap_chr3_with_14.npbin",
+    "xticks":[
+        "0",
+        "198000000"
+    ],
+    "yticks":[
+        "0",
+        "107300000"
+    ],
+    "binsize":"100000",
+    "title":null,
+    "xlabel":"14",
+    "ylabel":"chr7",
+    "shape":[
+        "1980",
+        "1073"
+    ],
+    "minvalue":"1.0",
+    "maxvalue":"64.0",
+    "bNoData":null,
+    "bLog":false,
+    "dtype":"float32",
+    "state":"compressed",
+    "matrix":null
+}
