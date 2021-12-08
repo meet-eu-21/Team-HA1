@@ -8,15 +8,12 @@ import pandas as pd
 import numpy as np
 import os
 import argparse
+from utils_preprocessing import generate_chromosome_lists
 from utils_general import load_parameters, set_up_logger
 import pyBigWig
 import gffutils
 import pickle
-
-
-def load_genomic_annotations(parameters):
-    return 0
-
+import math
 
 def generate_dict_genomic_annotations(parameters, cell_line):
     _, chromosomes_str_long, chromosomes_str_short = generate_chromosome_lists(parameters)
@@ -30,7 +27,7 @@ def generate_dict_genomic_annotations(parameters, cell_line):
             file_RAD21 = pyBigWig.open(parameters["genomic_annotations_RAD21_GM12878"])
         if 'SMC3' in parameters["genomic_annotations"]:
             file_SMC3 = pyBigWig.open(parameters["genomic_annotations_SMC3_GM12878"])
-    elif cell_line == 'IMR-90':
+    elif cell_line == 'IMR90':
         file_for_chr_len = pyBigWig.open(
             parameters[f"genomic_annotations_{parameters['genomic_annotations'][0]}_IMR-90"])
         if 'CTCF' in parameters["genomic_annotations"]:
@@ -51,27 +48,30 @@ def generate_dict_genomic_annotations(parameters, cell_line):
         if 'CTCF' in parameters["genomic_annotations"]:
             annot_CTCF = [np.sum(file_CTCF.values(chromosome, gbin, (gbin + (parameters["scaling_factor"] - 1))))
                           for gbin in gbins[:-1]]
+            annot_CTCF.append(np.sum(file_CTCF.values(chromosome, gbins[-1], math.floor(chr_len/ 100) * 100)))
             annotations.append(annot_CTCF)
         if 'RAD21' in parameters["genomic_annotations"]:
             annot_RAD21 = [np.sum(file_RAD21.values(chromosome, gbin, (gbin + (parameters["scaling_factor"] - 1))))
                            for gbin in gbins[:-1]]
+            annot_RAD21.append(np.sum(file_RAD21.values(chromosome, gbins[-1], math.floor(chr_len/ 100) * 100)))
             annotations.append(annot_RAD21)
         if 'SMC3' in parameters["genomic_annotations"]:
             annot_SMC3 = [np.sum(file_SMC3.values(chromosome, gbin, (gbin + (parameters["scaling_factor"] - 1))))
                           for gbin in gbins[:-1]]
+            annot_SMC3.append(np.sum(file_SMC3.values(chromosome, gbins[-1], math.floor(chr_len/ 100) * 100)))
             annotations.append(annot_SMC3)
 
         values = list(zip(*annotations))
 
-        positions = [(x + 1) for x in range(int(np.floor(chr_len / parameters["scaling_factor"])))]
+        positions = [(x + 1) for x in range(int(math.ceil(chr_len / parameters["scaling_factor"])))]
         dict_values.append(dict(zip(positions, values)))
     dict_target_genes = dict(zip(chromosomes_str_short, dict_values))
-    with open(os.path.join(parameters["genomic_annotations_housekeeping_genes_dicts_directory"], "genomic_anotations_" + cell_line + "_" + parameters["resolution_hic_matrix_string"] + ".pickle"), 'wb') as handle:
+    with open(os.path.join(parameters["genomic_annotations_dicts_directory"], "genomic_annotations_" + cell_line + "_" + parameters["resolution_hic_matrix_string"] + ".pickle"), 'wb') as handle:
         pickle.dump(dict_target_genes, handle, protocol=pickle.DEFAULT_PROTOCOL)
 
 
 def load_dict_genomic_annotations(parameters, cell_line):
-    with open(os.path.join(parameters["genomic_annotations_housekeeping_genes_dicts_directory"], "genomic_annotations_" + cell_line +
+    with open(os.path.join(parameters["genomic_annotations_dicts_directory"], "genomic_annotations_" + cell_line +
                            "_" + parameters["resolution_hic_matrix_string"] + ".pickle"), 'rb') as handle:
         dict_target_genes = pickle.load(handle)
 
@@ -126,12 +126,12 @@ def generate_dict_housekeeping_genes(housekeeping_genes, gtf, parameters):
             except:
                 continue
 
-    with open(os.path.join(parameters["genomic_annotations_housekeeping_genes_dicts_directory"], "housekeeping_genes_" + parameters["resolution_hic_matrix_string"] + ".pickle"), 'wb') as handle:
+    with open(os.path.join(parameters["genomic_annotations_dicts_directory"], "housekeeping_genes_" + parameters["resolution_hic_matrix_string"] + ".pickle"), 'wb') as handle:
         pickle.dump(dict_housekeeping_genes, handle, protocol=pickle.DEFAULT_PROTOCOL)
 
 
 def load_dict_housekeeping_genes(parameters):
-    with open(os.path.join(parameters["genomic_annotations_housekeeping_genes_dicts_directory"], "housekeeping_genes_" + parameters["resolution_hic_matrix_string"] + ".pickle"), 'rb') as handle:
+    with open(os.path.join(parameters["genomic_annotations_dicts_directory"], "housekeeping_genes_" + parameters["resolution_hic_matrix_string"] + ".pickle"), 'rb') as handle:
         dict_housekeeping_genes = pickle.load(handle)
 
     return dict_housekeeping_genes
@@ -157,7 +157,7 @@ def combine_genomic_annotations_and_housekeeping_genes(parameters, dict_genomic_
 
         #final_annotation_matrix = np.array(annotation_matrices_list)
         annotation_matrices_list_cell_lines.append(np.array(annotation_matrices_list))
-        #np.save(os.path.join(parameters["genomic_annotations_housekeeping_genes_dicts_directory"], "annotation_matrix_" + cell_line + "_" + parameters["resolution_hic_matrix_string"] + ".npy"),
+        #np.save(os.path.join(parameters["genomic_annotations_dicts_directory"], "annotation_matrix_" + cell_line + "_" + parameters["resolution_hic_matrix_string"] + ".npy"),
         #        final_annotation_matrix)
 
     return annotation_matrices_list_cell_lines
@@ -168,19 +168,20 @@ if __name__ == "__main__":
     parser.add_argument("--path_parameters_json", help=" to JSON with parameters.", type=str, required=True)
     args = parser.parse_args()
     path_parameters_json = args.path_parameters_json
+    #path_parameters_json = "./tad_detection/preprocessing/parameters.json"
 
     parameters = load_parameters(path_parameters_json)
     os.makedirs(parameters["output_directory"], exist_ok=True)
-    os.makedirs(os.path.join(parameters["output_directory"], "preprocessing"), exist_ok=True)
+    os.makedirs(os.path.join(parameters["output_directory"], "node_annotations"), exist_ok=True)
     logger = set_up_logger('node_annotations', parameters)
     logger.debug('Start node_annotations logger.')
 
     for cell_line in parameters["cell_lines"]:
         if cell_line == "GM12878" or cell_line == "IMR-90":
-            if not os.path.isfile(os.path.join(parameters["genomic_annotations_housekeeping_genes_dicts_directory"], "genomic_anotations_" + cell_line + "_" + parameters["resolution_hic_matrix_string"] + ".pickle")):
+            if not os.path.isfile(os.path.join(parameters["genomic_annotations_dicts_directory"], "genomic_annotations_" + cell_line + "_" + parameters["resolution_hic_matrix_string"] + ".pickle")):
                 generate_dict_genomic_annotations(parameters, cell_line)
-        if not os.path.isfile(os.path.join(parameters["genomic_annotations_housekeeping_genes_dicts_directory"], "housekeeping_genes_" + parameters["resolution_hic_matrix_string"] + ".pickle")):
-            housekeeping_genes = load_housekeeping_genes(parameters)
-            gtf = ensembl_gtf_database(parameters)
-            generate_dict_housekeeping_genes(housekeeping_genes, gtf, parameters)
+    if not os.path.isfile(os.path.join(parameters["genomic_annotations_dicts_directory"], "housekeeping_genes_" + parameters["resolution_hic_matrix_string"] + ".pickle")):
+        housekeeping_genes = load_housekeeping_genes(parameters)
+        gtf = ensembl_gtf_database(parameters)
+        generate_dict_housekeeping_genes(housekeeping_genes, gtf, parameters)
 

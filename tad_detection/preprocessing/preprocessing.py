@@ -8,7 +8,7 @@ from utils_general import load_parameters, set_up_logger
 from utils_preprocessing import generate_chromosome_lists, save_adjacency_matrix_node_features_labels
 from graph_generation import load_ccmap_file, statistics_adjacency_matrix, graph_filtering
 from visualization import hic_map_generation, histogram_interaction_count_hic_map
-from arrowhead_solution import load_arrowhead_solution
+from arrowhead_solution import load_arrowhead_solution, one_hot_encode_arrowhead_solution
 from node_annotations import load_dict_genomic_annotations, load_dict_housekeeping_genes, combine_genomic_annotations_and_housekeeping_genes
 import os
 import argparse
@@ -41,6 +41,8 @@ if __name__ == "__main__":
         histogram_interaction_count_hic_map(parameters, adjacency_matrices_list, adjacency_matrices_source_information_list)
 
     _, arrowhead_solution_list = load_arrowhead_solution(parameters)
+    arrowhead_solution_list = one_hot_encode_arrowhead_solution(adjacency_matrices_list, arrowhead_solution_list)
+
     dict_genomic_annotations = {}
     for cell_line in parameters["cell_lines"]:
         dict_genomic_annotations[cell_line] = load_dict_genomic_annotations(parameters, cell_line)

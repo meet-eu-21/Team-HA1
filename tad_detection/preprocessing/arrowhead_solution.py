@@ -13,9 +13,6 @@ from utils_model import load_data, save_tad_list
 
 def load_arrowhead_solution(parameters):
 
-    #TODO
-    #AUF MEHRERE ZELLEN &CHROMOSOMEN ANPASSEN
-
     solution = []
     solution_nodes = []
 
@@ -24,7 +21,11 @@ def load_arrowhead_solution(parameters):
         solution_nodes_cell_line = []
         for chromosome in parameters["chromosomes_str_short"]:
 
-            df_solution = pd.read_csv(os.path.join(parameters["arrowhead_solution_directory"], "GSE63525_" + cell_line + "_primary+replicate_Arrowhead_domainlist.txt"), delimiter="\t")
+            if cell_line == "GM12878":
+                df_solution = pd.read_csv(parameters["arrowhead_solution_GM12878"], delimiter="\t")
+            elif cell_line == "IMR-90":
+                df_solution = pd.read_csv(parameters["arrowhead_solution_IMR-90"], delimiter="\t")
+
             df_solution = df_solution[(df_solution["chr1"] == chromosome) & (df_solution["chr2"] == chromosome)]
 
             df_solution["x1"] = df_solution["x1"].apply(lambda x: np.int(round(x/parameters["scaling_factor"], 0)))
@@ -53,6 +54,21 @@ def arrowhead_predicted_tad_list(nodes, df_solution_nodes_list):
     predicted_tad = np.array(predicted_tad)
 
     return predicted_tad
+
+def one_hot_encode_arrowhead_solution(adjacency_matrices_list, solution_nodes):
+
+    solution_nodes_one_hot = []
+
+    for cell_line, solution_nodes_cell_line in zip(adjacency_matrices_list, solution_nodes):
+        solution_nodes_one_hot_cell_line = []
+        for chromosome, solution_nodes_cell_line_chromosome in zip(cell_line, solution_nodes_cell_line):
+            solution_nodes_one_hot_cell_line_chromosome = np.zeros([chromosome.shape[0],])
+            solution_nodes_one_hot_cell_line_chromosome[solution_nodes_cell_line_chromosome] = 1
+            solution_nodes_one_hot_cell_line.append(solution_nodes_one_hot_cell_line_chromosome)
+
+        solution_nodes_one_hot.append(solution_nodes_one_hot_cell_line)
+
+    return solution_nodes_one_hot
 
 if __name__ == "__main__":
 

@@ -13,7 +13,8 @@ import pandas as pd
 import numpy as np
 import os
 from torch_geometric.nn.dense import dense_mincut_pool, dense_diff_pool
-from torch_geometric.nn.conv import GraphConv
+from torch_geometric.nn.conv import GCNConv, GraphConv
+from torch_geometric.nn.dense import DenseGraphConv
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -135,25 +136,60 @@ for epoch in range(1, args.max_epochs + 1):
 
 
 class MinCutTAD(nn.Module):
-    def __init__(self, parameters, n_clust):
+    def __init__(self, parameters_user, n_clust):
         super(MinCutTAD, self).__init__()
         self.n_clust = n_clust
-        self.parameters = parameters
-        self.conv = GraphConv()
+        self.parameters_user = parameters_user
+
+        self.convs = nn.ModuleList()
+        self.pools = nn.ModuleList()
+
+        if self.parameters_user["encoding_edge"]:
+            self.convs.append(GCNConv(8, 8, add_self_loops=False, aggr='add'))
+        else:
+            self.convs.append(GraphConv(8, 8, aggr='add'))
+
+        if self.parameters_user["num_layers"] > 1:
+            for i in range(self.parameters_user["num_layers"]):
+                self.convs.append(DenseGraphConv(8, 8))
+
+
+        #for i in range(0, self.parameters_user["n_mincut_layer"]):
+        #    X, edge_index, mincut_loss, ortho_loss = dense_mincut_pool(X, edge_index, self.n_clust)  # n_clust muss Tensor werden
+
         # TODO
         #We need sth. like: GCSConv - https://graphneural.network/layers/convolution/
         #As far as I am able to say we donÄt have sth. likte this: https://pytorch-geometric.readthedocs.io/en/latest/modules/nn.html#torch_geometric.nn.conv.GraphConv
 
-    def forward(self, data):
+    def forward(self, X, edge_index):
 
-        X, edge_index = data.X, data.edge_index
-        X = self.conv(X, edge_index)
+        X = F.relu(self.convs[0](X, edge_index))
 
-        for i in range(0, self.parameters["n_mincut_layer"]):
-            X, edge_index, mincut_loss, ortho_loss = dense_mincut_pool(X, edge_index, self.n_clust)  # n_clust muss Tensor werden
+        X, edge_index, mc, o = dense_mincut_pool(X, edge_index, self.n_clust)
+
         # labels_pred, #NOT SURE WHAT C is
         #X, edge_index, labels_pred, C = dense_diff_pool(X, , edge_index, self.n_clust) #n_clust muss Tensor werden
         #https://github.com/danielegrattarola/spektral/blob/master/spektral/layers/pooling/diff_pool.py
 
         # TODO Check output
-        return mincut_loss
+
+        '''for i in range(1, self.num_layers - 1):
+            x = F.relu(self.convs[i](x, adj))
+            if self.pooling_type != 'mlp':
+                s = self.rms[i][:x.size(1), :].unsqueeze(dim=0).expand(x.size(0), -1, -1).to(x.device)
+            else:
+                s = self.pools[i](x)
+            x, adj, mc_aux, o_aux = dense_mincut_pool(x, adj, s)
+            mc += mc_aux
+            o += o_aux
+
+        x = self.convs[self.num_layers-1](x, adj)
+
+        x = x.mean(dim=1)
+        x = F.relu(self.lin1(x))
+        x = self.lin2(x)
+        '''
+
+        return X, mc, o
+
+        #return mincut_loss

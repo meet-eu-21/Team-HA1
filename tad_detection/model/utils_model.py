@@ -20,11 +20,13 @@ from torch_scatter import scatter_add
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 import json
 import logging
 import os
 import scipy as sp
 import random
+import math
 
 def _old_load_parameters(path_parameters_json):
     '''
@@ -64,58 +66,121 @@ def load_data(parameters):
     :return:
     '''
 
-    X = np.load(os.path.join(parameters["dataset_path"], parameters["dataset_name"] + "_X.npy"))
-    edge_index = np.load(os.path.join(parameters["dataset_path"], parameters["dataset_name"] + "_edge_index.npy"))
-    y = np.load(os.path.join(parameters["dataset_path"], parameters["dataset_name"] + "_y.npy"))
+    X = np.load(os.path.join(parameters["dataset_path"], parameters["dataset_name"], parameters["dataset_name"] + "_X.npy"), allow_pickle=True)
+    edge_index = np.load(os.path.join(parameters["dataset_path"], parameters["dataset_name"], parameters["dataset_name"] + "_edge_index.npy"), allow_pickle=True)
+    y = np.load(os.path.join(parameters["dataset_path"], parameters["dataset_name"], parameters["dataset_name"] + "_y.npy"), allow_pickle=True)
 
-    if X.shape[0] != edge_index.shape[0]:
+    if X.shape[1] != edge_index.shape[1]:
         raise ValueError('The shape of X and the edge_index does not fit together.')
-    if X.shape[0] != y.shape[0]:
+    if X.shape[1] != y.shape[1]:
         raise ValueError('The shape of X and y does not fit together.')
 
     return X, edge_index, y
 
 def split_data(parameters, X, edge_index, y):
 
-    if X.shape[0] == 2:
-        logger.info("Two cell lines are inputted. A cross-validation on both datasets will be performed. One cell line is used for training and the other one for testing and validation.")
-        data_train_cross_1 = Data(x=torch.from_numpy(X[0]), edge_index=torch.from_numpy([0]), y=torch.from_numpy(y[0]))
-        data_train_cross_2 = Data(x=torch.from_numpy(X[1]), edge_index=torch.from_numpy([1]), y=torch.from_numpy(y[1]))
+    if parameters["proportion_val_set"] + parameters["proportion_test_set"] + parameters["proportion_train_set"] == 1:
+        if X.shape[0] == 2:
+            logger.info("Two cell lines are inputted. A cross-validation on both datasets will be performed. One cell line is used for training and the other one for testing and validation.")
 
-        test_chromosomes = random.sample(list(range(0, X[0].shape[1])), np.round(X[0].shape[1]/2))
-        val_chromosomes = list(set(range(0, X[0].shape[1])) - set(test_chromosomes))
+            data_train_list_cross_1 = []
+            data_train_list_cross_2 = []
+            data_test_list_cross_1 = []
+            data_test_list_cross_2 = []
+            data_val_list_cross_1 = []
+            data_val_list_cross_2 = []
 
-        data_test_cross_1 = Data(x=torch.from_numpy(X[1]), edge_index=torch.from_numpy([1]), y=torch.from_numpy(y[1])) #[test_chromosomes,:]
-        data_test_cross_2 = Data(x=torch.from_numpy(X[0]), edge_index=torch.from_numpy([0]), y=torch.from_numpy(y[0])) #[test_chromosomes,:]
+            for chromosome in range(X[0].shape[0]):
+                data_train_list_cross_1.append(Data(x=torch.from_numpy(X[0][chromosome]), edge_index=torch.from_numpy(edge_index[0][chromosome]), y=torch.from_numpy(y[0][chromosome])))
+            for chromosome in range(X[1].shape[0]):
+                data_train_list_cross_2.append(Data(x=torch.from_numpy(X[1][chromosome]), edge_index=torch.from_numpy(edge_index[1][chromosome]), y=torch.from_numpy(y[1][chromosome])))
 
-        data_val_cross_1 = Data(x=torch.from_numpy(X[1]), edge_index=torch.from_numpy([1]), y=torch.from_numpy(y[1])) #[val_chromosomes,:]
-        data_val_cross_2 = Data(x=torch.from_numpy(X[0]), edge_index=torch.from_numpy([0]), y=torch.from_numpy(y[0])) #[val_chromosomes,:]
+            test_chromosomes = random.sample(list(range(0, X[0].shape[0])), math.floor(np.round(X[0].shape[0]/2)))
+            val_chromosomes = list(set(range(0, X[0].shape[0])) - set(test_chromosomes))
 
-        return data_train_cross_1, data_test_cross_1, data_val_cross_1, data_train_cross_2, data_test_cross_2, data_val_cross_2
+            for chromosome in test_chromosomes:
+                data_test_list_cross_1.append(Data(x=torch.from_numpy(X[1][chromosome]), edge_index=torch.from_numpy(edge_index[1][chromosome]), y=torch.from_numpy(y[1][chromosome]))) #[test_chromosomes,:]
+                data_test_list_cross_2.append(Data(x=torch.from_numpy(X[0][chromosome]), edge_index=torch.from_numpy(edge_index[0][chromosome]), y=torch.from_numpy(y[0][chromosome]))) #[test_chromosomes,:]
 
-    train_chromosomes = random.sample(list(range(0, X[0].shape[1])), X[0].shape[1] * parameters["proportion_train_set"])
-    test_chromosomes = random.sample(list(set(range(0, X[0].shape[1])) - set(train_chromosomes)), X[0].shape[1] * parameters["proportion_test_set"])
-    val_chromosomes = list(set(range(0, X[0].shape[1])) - set(train_chromosomes) - set(test_chromosomes))
+            for chromosome in val_chromosomes:
+                data_val_list_cross_1.append(Data(x=torch.from_numpy(X[1][chromosome]), edge_index=torch.from_numpy(edge_index[1][chromosome]), y=torch.from_numpy(y[1][chromosome]))) #[val_chromosomes,:]
+                data_val_list_cross_2.append(Data(x=torch.from_numpy(X[0][chromosome]), edge_index=torch.from_numpy(edge_index[0][chromosome]), y=torch.from_numpy(y[0][chromosome]))) #[val_chromosomes,:]
 
-    data_train = Data(x=torch.from_numpy(X), edge_index=torch.from_numpy(edge_index), y=torch.from_numpy(y))
-    data_test = Data(x=torch.from_numpy(X), edge_index=torch.from_numpy(edge_index), y=torch.from_numpy(y))
-    data_val = Data(x=torch.from_numpy(X), edge_index=torch.from_numpy(edge_index), y=torch.from_numpy(y))
+            return data_train_list_cross_1, data_test_list_cross_1, data_val_list_cross_1, data_train_list_cross_2, data_test_list_cross_2, data_val_list_cross_2
 
-    # x: .astype("float32")
-    # edge_index: .type(torch.LongTensor)
-    # y: .type(torch.LongTensor)
+        else:
 
-    return data_train, data_test, data_val, 0, 0, 0
+            val_chromosomes = random.sample(list(range(0, X[0].shape[0])), math.floor(X[0].shape[0] * parameters["proportion_val_set"]))
+            test_chromosomes = random.sample(list(set(range(0, X[0].shape[0])) - set(val_chromosomes)), math.floor(X[0].shape[0] * parameters["proportion_test_set"]))
+            train_chromosomes = list(set(range(0, X[0].shape[0])) - set(val_chromosomes) - set(test_chromosomes))
+
+            data_train_list = []
+            data_test_list = []
+            data_val_list = []
+
+            for chromosome in train_chromosomes:
+                data_train_list.append(Data(x=torch.from_numpy(X[0][chromosome]), edge_index=torch.from_numpy(edge_index[0][chromosome]), y=torch.from_numpy(y[0][chromosome])))
+            for chromosome in test_chromosomes:
+                data_test_list.append(Data(x=torch.from_numpy(X[0][chromosome]), edge_index=torch.from_numpy(edge_index[0][chromosome]), y=torch.from_numpy(y[0][chromosome])))
+            for chromosome in val_chromosomes:
+                data_val_list.append(Data(x=torch.from_numpy(X[0][chromosome]), edge_index=torch.from_numpy(edge_index[0][chromosome]), y=torch.from_numpy(y[0][chromosome])))
+
+            # x: .astype("float32")
+            # edge_index: .type(torch.LongTensor)
+            # y: .type(torch.LongTensor)
+
+            return data_train_list, data_test_list, data_val_list, 0, 0, 0
+
+    else:
+        raise NotImplementedError("The validation ,training and test data sizes do not sum up to 1. Training aborted.")
+
 
 def torch_geometric_data_generation_dataloader(data_train_cross_1, data_test_cross_1, data_val_cross_1, data_train_cross_2, data_test_cross_2, data_val_cross_2):
 
+    dataloader_train_cross_1 = DataLoader(data_train_cross_1, batch_size=1)
+    dataloader_test_cross_1 = DataLoader(data_test_cross_1, batch_size=1)
+    dataloader_val_cross_1 = DataLoader(data_val_cross_1, batch_size=1)
 
-    return dataloader_train_cross_1, dataloader_test_cross_1, dataloader_val_cross_1, dataloader_train_cross_2, dataloader_test_cross_2, dataloader_val_cross_2
+    if all([data_train_cross_2, data_train_cross_2, data_train_cross_2]) == 0:
 
-    dataloader_train = DataLoader(data_list_train, batch_size=1)  # 32
-    dataloader_train
+        return dataloader_train_cross_1, dataloader_test_cross_1, dataloader_val_cross_1, 0, 0, 0
 
-    return dataloader_train, dataloader_test, dataloader_val, 0, 0, 0
+    else:
+
+        dataloader_train_cross_2 = DataLoader(data_train_cross_2, batch_size=1)
+        dataloader_test_cross_2 = DataLoader(data_test_cross_2, batch_size=1)
+        dataloader_val_cross_2 = DataLoader(data_val_cross_2, batch_size=1)
+
+        return dataloader_train_cross_1, dataloader_test_cross_1, dataloader_val_cross_1, dataloader_train_cross_2, dataloader_test_cross_2, dataloader_val_cross_2
+
+
+def load_optimizer(model, parameters_user):
+
+    if parameters_user["optimizer"] == "adam":
+        optimizer = torch.optim.Adam(model.parameters(),
+                                     lr=parameters_user["learning_rate"])
+
+    elif parameters_user["optimizer"] == "adagrad":
+        optimizer = torch.optim.Adagrad(model.parameters(),
+                                        lr=parameters_user["learning_rate"],
+                                        weight_decay=parameters_user["weight_decay"])
+    optimizer.zero_grad()
+
+    scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, min_lr=1e-5,
+                                  patience=parameters_user["learning_rate_decay_patience"], verbose=True)
+
+    return optimizer, scheduler
+
+def save_model(model, epoch_num, n_clust, parameters):
+
+    model_dict = model.state_dict()
+    torch.save(model_dict, f'{parameters["output_directory"]}/models/mincut_model_{n_clust}_{parameters["dataset_name"]}_epoch_{epoch_num}_activation_function_{parameters["activation_function"]}_learning_rate_{parameters["learning_rate"]}_n_channels_{parameters["n_channels"]}_optimizer_{parameters["optimizer"]}_type_laplacian_{parameters["type_laplacian"]}_weight_decay_{parameters["weight_decay"]}.model')
+
+def load_model(n_clust_test_optimum, epoch_num_optimum, parameters):
+
+    model = torch.load(f'{parameters["output_directory"]}/models/mincut_model_{n_clust_test_optimum}_{parameters["dataset_name"]}_epoch_{epoch_num_optimum}_activation_function_{parameters["activation_function"]}_learning_rate_{parameters["learning_rate"]}_n_channels_{parameters["n_channels"]}_optimizer_{parameters["optimizer"]}_type_laplacian_{parameters["type_laplacian"]}_weight_decay_{parameters["weight_decay"]}.model')
+
+    return model
 
 def generate_metrics_plots(score_metrics_clustering, output_directory):
     '''
@@ -326,4 +391,15 @@ def save_tad_list(parameters, tad_list, tool):
     :return:
     '''
 
-    np.save(tad_list, os.path.join(parameters["output_directory"], "training", tool + ".npy"))
+    np.save(os.path.join(parameters["output_directory"], "training", tool + ".npy"), tad_list)
+
+def calculation_graph_matrix_representation(parameters, X, edge_index):
+
+    if parameters["graph_matrix_representation"] == "laplacian":
+        edge_index = calculate_laplacian(parameters["type_laplacian"], X, edge_index)
+    elif parameters["graph_matrix_representation"] == "normalized":
+        edge_index = normalized_adjacency(edge_index)
+    else:
+        raise ValueError("A graph matrix representation has been chosen, which is not implemented.")
+
+    return edge_index
