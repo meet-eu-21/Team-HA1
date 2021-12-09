@@ -1,6 +1,8 @@
 {
+  "chromosomes": "all",
+  "cell_lines": ["GM12878", "IMR-90"],
   "output_directory": "/home/arnoldtl/test_output_gnn_meeteu/",
-  "paths_predicted_tads_per_tad_prediction_methods": ["/home/arnoldtl/meeteu/Arrowhead.npy", "/home/arnoldtl/meeteu/TopDom.npy", "/home/arnoldtl/meeteu/SpectralTAD.npy", "/home/arnoldtl/meeteu/Spectral.npy", "/home/arnoldtl/meeteu/Ashoor.npy", "/home/arnoldtl/meeteu/MinCutTAD.npy"],
+  "paths_predicted_tads_per_tad_prediction_methods": ["./results/random1.npy", "./results/random2.npy"],
   "node_feature_encoding": ["CTCF", "RAD21", "SMC3", "Number_HousekeepingGenes"],
-  "tad_prediction_methods": ["Arrowhead", "TopDom", "SpectralTAD", "Spectral", "Ashoor", "MinCutTAD"]
+  "tad_prediction_methods": ["Results1", "Results2"]
 }

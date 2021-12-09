@@ -68,6 +68,7 @@ def load_data(parameters):
 
     X = np.load(os.path.join(parameters["dataset_path"], parameters["dataset_name"], parameters["dataset_name"] + "_X.npy"), allow_pickle=True)
     edge_index = np.load(os.path.join(parameters["dataset_path"], parameters["dataset_name"], parameters["dataset_name"] + "_edge_index.npy"), allow_pickle=True)
+    edge_attr = np.load(os.path.join(parameters["dataset_path"], parameters["dataset_name"], parameters["dataset_name"] + "_edge_attr.npy"), allow_pickle=True)
     y = np.load(os.path.join(parameters["dataset_path"], parameters["dataset_name"], parameters["dataset_name"] + "_y.npy"), allow_pickle=True)
 
     if X.shape[1] != edge_index.shape[1]:
@@ -75,9 +76,9 @@ def load_data(parameters):
     if X.shape[1] != y.shape[1]:
         raise ValueError('The shape of X and y does not fit together.')
 
-    return X, edge_index, y
+    return X, edge_index, edge_attr, y
 
-def split_data(parameters, X, edge_index, y):
+def split_data(parameters, X, edge_index, edge_attr, y):
 
     if parameters["proportion_val_set"] + parameters["proportion_test_set"] + parameters["proportion_train_set"] == 1:
         if X.shape[0] == 2:
@@ -91,20 +92,20 @@ def split_data(parameters, X, edge_index, y):
             data_val_list_cross_2 = []
 
             for chromosome in range(X[0].shape[0]):
-                data_train_list_cross_1.append(Data(x=torch.from_numpy(X[0][chromosome]), edge_index=torch.from_numpy(edge_index[0][chromosome]), y=torch.from_numpy(y[0][chromosome])))
+                data_train_list_cross_1.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[0][chromosome])))
             for chromosome in range(X[1].shape[0]):
-                data_train_list_cross_2.append(Data(x=torch.from_numpy(X[1][chromosome]), edge_index=torch.from_numpy(edge_index[1][chromosome]), y=torch.from_numpy(y[1][chromosome])))
+                data_train_list_cross_2.append(Data(x=torch.from_numpy(X[1][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[1][chromosome][0], edge_index[1][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[1][chromosome]), y=torch.from_numpy(y[1][chromosome])))
 
             test_chromosomes = random.sample(list(range(0, X[0].shape[0])), math.floor(np.round(X[0].shape[0]/2)))
             val_chromosomes = list(set(range(0, X[0].shape[0])) - set(test_chromosomes))
 
             for chromosome in test_chromosomes:
-                data_test_list_cross_1.append(Data(x=torch.from_numpy(X[1][chromosome]), edge_index=torch.from_numpy(edge_index[1][chromosome]), y=torch.from_numpy(y[1][chromosome]))) #[test_chromosomes,:]
-                data_test_list_cross_2.append(Data(x=torch.from_numpy(X[0][chromosome]), edge_index=torch.from_numpy(edge_index[0][chromosome]), y=torch.from_numpy(y[0][chromosome]))) #[test_chromosomes,:]
+                data_test_list_cross_1.append(Data(x=torch.from_numpy(X[1][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[1][chromosome][0], edge_index[1][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[1][chromosome]))) #[test_chromosomes,:]
+                data_test_list_cross_2.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[1][chromosome]), y=torch.from_numpy(y[0][chromosome]))) #[test_chromosomes,:]
 
             for chromosome in val_chromosomes:
-                data_val_list_cross_1.append(Data(x=torch.from_numpy(X[1][chromosome]), edge_index=torch.from_numpy(edge_index[1][chromosome]), y=torch.from_numpy(y[1][chromosome]))) #[val_chromosomes,:]
-                data_val_list_cross_2.append(Data(x=torch.from_numpy(X[0][chromosome]), edge_index=torch.from_numpy(edge_index[0][chromosome]), y=torch.from_numpy(y[0][chromosome]))) #[val_chromosomes,:]
+                data_val_list_cross_1.append(Data(x=torch.from_numpy(X[1][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[1][chromosome][0], edge_index[1][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[1][chromosome]))) #[val_chromosomes,:]
+                data_val_list_cross_2.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[1][chromosome]), y=torch.from_numpy(y[0][chromosome]))) #[val_chromosomes,:]
 
             return data_train_list_cross_1, data_test_list_cross_1, data_val_list_cross_1, data_train_list_cross_2, data_test_list_cross_2, data_val_list_cross_2
 
@@ -119,11 +120,11 @@ def split_data(parameters, X, edge_index, y):
             data_val_list = []
 
             for chromosome in train_chromosomes:
-                data_train_list.append(Data(x=torch.from_numpy(X[0][chromosome]), edge_index=torch.from_numpy(edge_index[0][chromosome]), y=torch.from_numpy(y[0][chromosome])))
+                data_train_list.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[0][chromosome])))
             for chromosome in test_chromosomes:
-                data_test_list.append(Data(x=torch.from_numpy(X[0][chromosome]), edge_index=torch.from_numpy(edge_index[0][chromosome]), y=torch.from_numpy(y[0][chromosome])))
+                data_test_list.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[0][chromosome])))
             for chromosome in val_chromosomes:
-                data_val_list.append(Data(x=torch.from_numpy(X[0][chromosome]), edge_index=torch.from_numpy(edge_index[0][chromosome]), y=torch.from_numpy(y[0][chromosome])))
+                data_val_list.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[0][chromosome])))
 
             # x: .astype("float32")
             # edge_index: .type(torch.LongTensor)
@@ -241,7 +242,7 @@ def metrics_calculation(X, labels, labels_true):
 
     return silhouette_score_calc, silhouette_samples_calc, homogeneity_score_calc, completeness_score_calc, v_measure_score_calc, calinski_harabasz_score_calc, davies_bouldin_score_calc
 
-def calculate_laplacian(type_laplacian, edge_index, X):
+def calculate_laplacian(type_laplacian, edge_index, edge_attr):
     '''
 
     :param type_laplacian:
@@ -251,16 +252,18 @@ def calculate_laplacian(type_laplacian, edge_index, X):
     '''
 
     if type_laplacian == "unweighted_laplacian":
-        get_laplacian(edge_index = edge_index, normalization = "sym")
+        #get_laplacian(edge_index = edge_index, normalization = "sym")
+        print("Currently not implemented.")
     elif type_laplacian == "weighted_laplacian":
-        pca = PCA(n_components=1)
-        edge_weight = pca.fit_transform(X)
-        logger.info("Explained variance ratio: " + str(pca.explained_variance_ratio_))
-        logger.info("Explained singular values: " + str(pca.singular_values_))
-        edge_index = get_laplacian(edge_index = edge_index, edge_weight = edge_weight, normalization = "sym")
+        #pca = PCA(n_components=1)
+        #edge_weight = pca.fit_transform(X)
+        #logger.info("Explained variance ratio: " + str(pca.explained_variance_ratio_))
+        #logger.info("Explained singular values: " + str(pca.singular_values_))
+        #edge_index = get_laplacian(edge_index = edge_index, edge_weight = torch.from_numpy(edge_weight), normalization = "sym")
+        edge_index, edge_weight = get_laplacian(edge_index=edge_index, edge_weight=edge_attr, normalization="sym")
+    return edge_index, edge_weight
 
-    '''
-    Alternatives:
+    '''Alternatives:
     from scipy.sparse.csgraph import laplacian
 
     laplacian(G, normed=True) #Edge weight is not taken into account #Normalization done in cresswell #Doc: https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csgraph.laplacian.html
@@ -273,7 +276,7 @@ def calculate_laplacian(type_laplacian, edge_index, X):
     laplacian_matrix(G, nodelist=None, weight='weight')
     '''
 
-    return edge_index
+
 
 '''
 def get_laplacian(edge_index, edge_weight: Optional[torch.Tensor] = None,
@@ -358,10 +361,10 @@ def normalized_adjacency(edge_index):
     #INSPIRATION: https://github.com/danielegrattarola/spektral/blob/e99d5955a80eeae3c4605d8479f53aaa0ef5dbf2/spektral/utils/convolution.py#L25
     degrees = np.power(np.array(edge_index.sum(1)), -0.5).ravel()
     degrees[np.isinf(degrees)] = 0.0
-    if sp.issparse(edge_index):
-        D = sp.diags(degrees)
-    else:
-        D = np.diag(degrees)
+    #if sp.issparse(edge_index):
+    #    D = sp.diags(degrees)
+    #else:
+    D = np.diag(degrees)
     return D.dot(edge_index).dot(D)
 
 '''
@@ -393,13 +396,13 @@ def save_tad_list(parameters, tad_list, tool):
 
     np.save(os.path.join(parameters["output_directory"], "training", tool + ".npy"), tad_list)
 
-def calculation_graph_matrix_representation(parameters, X, edge_index):
+def calculation_graph_matrix_representation(parameters, edge_index, edge_attr):
 
     if parameters["graph_matrix_representation"] == "laplacian":
-        edge_index = calculate_laplacian(parameters["type_laplacian"], X, edge_index)
+        edge_index, edge_weight = calculate_laplacian(parameters["type_laplacian"], edge_index, edge_attr)
+        return edge_index, edge_weight
     elif parameters["graph_matrix_representation"] == "normalized":
         edge_index = normalized_adjacency(edge_index)
+        return edge_index, None
     else:
         raise ValueError("A graph matrix representation has been chosen, which is not implemented.")
-
-    return edge_index

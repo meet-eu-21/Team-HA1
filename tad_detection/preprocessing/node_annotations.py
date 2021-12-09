@@ -137,12 +137,21 @@ def load_dict_housekeeping_genes(parameters):
     return dict_housekeeping_genes
 
 
-def combine_genomic_annotations_and_housekeeping_genes(parameters, dict_genomic_annotations, dict_housekeeping_genes):
+def combine_genomic_annotations_and_housekeeping_genes(parameters, dict_genomic_annotations, dict_housekeeping_genes, arrowhead_solution_list):
+
+    number_bins_adjacency_matrices_arrowhead_solution = []
+
+    for cell_line in range(len(parameters["cell_lines"])):
+        number_bins_adjacency_matrices_arrowhead_solution_cell_line = []
+        for chromosome in range(len(arrowhead_solution_list[cell_line])):
+            number_bins_adjacency_matrices_arrowhead_solution_cell_line.append(len(arrowhead_solution_list[cell_line][chromosome]))
+
+        number_bins_adjacency_matrices_arrowhead_solution.append(number_bins_adjacency_matrices_arrowhead_solution_cell_line)
 
     annotation_matrices_list_cell_lines = []
-    for cell_line in parameters["cell_lines"]:
+    for index_cell_line, cell_line in enumerate(parameters["cell_lines"]):
         annotation_matrices_list = []
-        for chromosome in dict_genomic_annotations[cell_line].keys():
+        for index_chromosome, chromosome in enumerate(dict_genomic_annotations[cell_line].keys()):
             annotation_matrix = np.zeros((len(dict_genomic_annotations[cell_line][chromosome]), len(parameters["genomic_annotations"])))
 
             if 'housekeeping_genes' in parameters["genomic_annotations"]:
@@ -151,8 +160,9 @@ def combine_genomic_annotations_and_housekeeping_genes(parameters, dict_genomic_
                 for bin in dict_housekeeping_genes[chromosome].keys():
                     annotation_matrix[(bin-1), (len(parameters["genomic_annotations"]) - 1)] = dict_housekeeping_genes[chromosome][bin]
             else:
-                annotation_matrix[[(x - 1) for x in list(dict_genomic_annotations[cell_line][chromosome].keys())],
-                :(len(parameters["genomic_annotations"]))] = list(dict_genomic_annotations[cell_line][chromosome].values())
+                annotation_matrix[[(x - 1) for x in list(dict_genomic_annotations[cell_line][chromosome].keys())], :(len(parameters["genomic_annotations"]))] = list(dict_genomic_annotations[cell_line][chromosome].values())
+            annotation_matrix = annotation_matrix[:number_bins_adjacency_matrices_arrowhead_solution[index_cell_line][index_chromosome], ]
+
             annotation_matrices_list.append(annotation_matrix)
 
         #final_annotation_matrix = np.array(annotation_matrices_list)

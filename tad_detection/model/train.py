@@ -61,9 +61,11 @@ def train(model, dataloader_train, dataloader_test, optimizer, scheduler, parame
 
                     model.train()
 
-                    X, edge_index, y = graph_train_batch.x, graph_train_batch.edge_index, graph_train_batch.y
-                    edge_index = calculation_graph_matrix_representation(parameters, X, edge_index)
-                    X, edge_index, y = X.to(device), edge_index.to(device), y.to(device)
+                    X, edge_index, edge_attr, y = graph_train_batch.x, graph_train_batch.edge_index, graph_train_batch.edge_attr, graph_train_batch.y
+                    edge_index, edge_weight = calculation_graph_matrix_representation(parameters, edge_index, edge_attr)
+                    if edge_weight is not None:
+                        edge_attr = edge_weight
+                    X, edge_index, edge_attr, y = X.to(device), edge_index.to(device), edge_attr.to(device), y.to(device)
 
                     optimizer.zero_grad()
 
@@ -88,7 +90,7 @@ def train(model, dataloader_train, dataloader_test, optimizer, scheduler, parame
 
                     labels = np.argmax(labels, axis=1)
                     end_time_mincutad = time.time()
-                    time_list.append(start_time_mincutad - end_time_mincutad)
+                    time_list.append(end_time_mincutad - start_time_mincutad)
 
                     #loss = loss_fn(output, target)
                     #loss.backward()
@@ -177,9 +179,9 @@ if __name__ == "__main__":
     logger.debug('Start training logger.')
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    X, edge_index, y = load_data(parameters)
+    X, edge_index, edge_attr, y = load_data(parameters)
 
-    data_train_cross_1, data_test_cross_1, data_val_cross_1, data_train_cross_2, data_test_cross_2, data_val_cross_2 = split_data(parameters, X, edge_index, y)
+    data_train_cross_1, data_test_cross_1, data_val_cross_1, data_train_cross_2, data_test_cross_2, data_val_cross_2 = split_data(parameters, X, edge_index, edge_attr, y)
     dataloader_train_cross_1, dataloader_test_cross_1, dataloader_val_cross_1, dataloader_train_cross_2, dataloader_test_cross_2, dataloader_val_cross_2 = torch_geometric_data_generation_dataloader(data_train_cross_1, data_test_cross_1, data_val_cross_1, data_train_cross_2, data_test_cross_2, data_val_cross_2)
 
     model = MinCutTAD(parameters, 8).to(device)

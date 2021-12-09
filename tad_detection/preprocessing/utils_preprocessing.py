@@ -65,7 +65,27 @@ def generate_chromosome_lists(parameters):
 
     return chromsomes_int, chromosomes_str_long, chromosomes_str_short
 
-def save_adjacency_matrix_node_features_labels(parameters, adjacency_matrices_list, adjacency_matrices_source_information_list, node_features_list, arrowhead_solution_list):
+def generate_edge_index_edge_attr_from_adjacency_matrix(parameters, adjacency_matrices_list):
+
+    edge_index = []
+    edge_attr = []
+
+    for cell_line, adjacency_matrices_list_cell_line in zip(parameters["cell_lines"], adjacency_matrices_list):
+        edge_index_cell_line = []
+        edge_attr_cell_line = []
+        for adjacency_matrix in adjacency_matrices_list_cell_line:
+            edge_index_cell_line_chromosome_1, edge_index_cell_line_chromosome_2 = np.where(adjacency_matrix > 1)
+            edge_index_cell_line.append([edge_index_cell_line_chromosome_1, edge_index_cell_line_chromosome_2])
+            edge_attr_cell_line_chromosome = []
+            for edge_index_1, edge_index_2 in zip(edge_index_cell_line_chromosome_1, edge_index_cell_line_chromosome_2):
+                edge_attr_cell_line_chromosome.append(adjacency_matrix[edge_index_1, edge_index_2])
+            edge_attr_cell_line.append(np.array(edge_attr_cell_line_chromosome))
+        edge_index.append(np.array(edge_index_cell_line))
+        edge_attr.append(np.array(edge_attr_cell_line))
+
+    return edge_index, edge_attr
+
+def save_adjacency_matrix_node_features_labels(parameters, edge_index_list, adjacency_matrices_source_information_list, node_features_list, edge_attr_list, arrowhead_solution_list):
     '''
 
     :param parameters: dictionary with parameters set in parameters.json file
@@ -76,6 +96,7 @@ def save_adjacency_matrix_node_features_labels(parameters, adjacency_matrices_li
     '''
 
     np.save(os.path.join(parameters["output_directory"], parameters["dataset_name"] + "_X.npy"), np.array(node_features_list))
-    np.save(os.path.join(parameters["output_directory"], parameters["dataset_name"] + "_edge_index.npy"), np.array(adjacency_matrices_list))
+    np.save(os.path.join(parameters["output_directory"], parameters["dataset_name"] + "_edge_attr.npy"), np.array(edge_attr_list))
+    np.save(os.path.join(parameters["output_directory"], parameters["dataset_name"] + "_edge_index.npy"), np.array(edge_index_list))
     np.save(os.path.join(parameters["output_directory"], parameters["dataset_name"] + "_source_information.npy"), np.array(adjacency_matrices_source_information_list))
     np.save(os.path.join(parameters["output_directory"], parameters["dataset_name"] + "_y.npy"), np.array(arrowhead_solution_list))

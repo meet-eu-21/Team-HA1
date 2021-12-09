@@ -23,6 +23,15 @@ import torch.nn.functional as F
 #https://github.com/pyg-team/pytorch_geometric/blob/74245f3a680c1f6fd1944623e47d9e677b43e827/torch_geometric/nn/dense/mincut_pool.py
 #https://github.com/convei-lab/toptimize/blob/c4ef429c9174d8819279533ed8aead0fd2973791/toptimize/examples/proteins_mincut_pool.py
 
+
+
+####test = GCNConv2(37, 32, add_self_loops=False, aggr='add')
+#ZWEITES EGAL
+#x.shape
+#Out[31]: torch.Size([1903, 37])
+#edge_index.shape
+#Out[32]: torch.Size([2, 4148])
+
 '''
 
 X_1 = GraphConvSkip(P['n_channels'],
@@ -141,17 +150,17 @@ class MinCutTAD(nn.Module):
         self.n_clust = n_clust
         self.parameters_user = parameters_user
 
-        self.convs = nn.ModuleList()
-        self.pools = nn.ModuleList()
+        convs = nn.ModuleList()
+        pools = nn.ModuleList()
 
-        if self.parameters_user["encoding_edge"]:
-            self.convs.append(GCNConv(8, 8, add_self_loops=False, aggr='add'))
+        if parameters_user["encoding_edge"]:
+            convs.append(GCNConv(len(parameters_user["genomic_annotations"]), parameters_user["hidden_conv_size"], add_self_loops=False, aggr='add'))
         else:
-            self.convs.append(GraphConv(8, 8, aggr='add'))
+            convs.append(GraphConv(len(parameters_user["genomic_annotations"]), parameters_user["hidden_conv_size"], aggr='add'))
 
-        if self.parameters_user["num_layers"] > 1:
-            for i in range(self.parameters_user["num_layers"]):
-                self.convs.append(DenseGraphConv(8, 8))
+        if parameters_user["num_layers"] > 1:
+            for i in range(parameters_user["num_layers"]):
+                convs.append(DenseGraphConv(8, 8))
 
 
         #for i in range(0, self.parameters_user["n_mincut_layer"]):
@@ -163,7 +172,9 @@ class MinCutTAD(nn.Module):
 
     def forward(self, X, edge_index):
 
-        X = F.relu(self.convs[0](X, edge_index))
+        X = F.relu(convs[0](X, edge_index))
+
+        convs[1](X, edge_index)
 
         X, edge_index, mc, o = dense_mincut_pool(X, edge_index, self.n_clust)
 

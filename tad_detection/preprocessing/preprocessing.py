@@ -5,7 +5,7 @@ sys.path.insert(1, './tad_detection/model/')
 sys.path.insert(1, './tad_detection/evaluation/')
 
 from utils_general import load_parameters, set_up_logger
-from utils_preprocessing import generate_chromosome_lists, save_adjacency_matrix_node_features_labels
+from utils_preprocessing import generate_chromosome_lists, save_adjacency_matrix_node_features_labels, generate_edge_index_edge_attr_from_adjacency_matrix
 from graph_generation import load_ccmap_file, statistics_adjacency_matrix, graph_filtering
 from visualization import hic_map_generation, histogram_interaction_count_hic_map
 from arrowhead_solution import load_arrowhead_solution, one_hot_encode_arrowhead_solution
@@ -35,6 +35,7 @@ if __name__ == "__main__":
         statistics_adjacency_matrix(parameters, adjacency_matrices_list, adjacency_matrices_source_information_list)
 
     adjacency_matrices_list = graph_filtering(parameters, adjacency_matrices_list)
+    edge_index_list, edge_attr_list = generate_edge_index_edge_attr_from_adjacency_matrix(parameters, adjacency_matrices_list)
 
     if parameters["generate_plots_statistics"] == "True":
         hic_map_generation(parameters, adjacency_matrices_list, adjacency_matrices_source_information_list)
@@ -48,6 +49,6 @@ if __name__ == "__main__":
         dict_genomic_annotations[cell_line] = load_dict_genomic_annotations(parameters, cell_line)
     dict_housekeeping_genes = load_dict_housekeeping_genes(parameters)
 
-    node_features_list = combine_genomic_annotations_and_housekeeping_genes(parameters, dict_genomic_annotations, dict_housekeeping_genes)
+    node_features_list = combine_genomic_annotations_and_housekeeping_genes(parameters, dict_genomic_annotations, dict_housekeeping_genes, arrowhead_solution_list)
 
-    save_adjacency_matrix_node_features_labels(parameters, adjacency_matrices_list, adjacency_matrices_source_information_list, node_features_list, arrowhead_solution_list)
+    save_adjacency_matrix_node_features_labels(parameters, edge_index_list, adjacency_matrices_source_information_list, node_features_list, edge_attr_list, arrowhead_solution_list)
