@@ -46,6 +46,27 @@ def load_arrowhead_solution(parameters):
         solution.append(solution_cell_line)
         solution_nodes.append(solution_nodes_cell_line)
 
+        '''
+        arrowhead_solution = []
+
+        for chrom in chromosome_list:
+            df_solution = pd.read_csv(f"{data_prefix}meeteu/www.lcqb.upmc.fr/meetu/dataforstudent/TAD/GSE63525_GM12878_primary+replicate_Arrowhead_domainlist.txt", delimiter="\t")
+        
+            df_solution = df_solution[(df_solution["chr1"] == str(chrom)) & (df_solution["chr2"] == str(chrom))]
+            df_solution["x1"] = df_solution["x1"].apply(lambda x: np.int(round(x/100000, 0)))
+            df_solution["x2"] = df_solution["x2"].apply(lambda x: np.int(round(x/100000, 0)))
+            
+            df_solution_ = []
+            
+            for index, row in df_solution.iterrows():
+                df_solution_.append(np.arange(row["x1"], row["x2"]+1).tolist())
+            
+            s_solution = sorted(np.asarray(df_solution_).squeeze())
+            s_solution = [x for x in s_solution if x != []]
+            
+            arrowhead_solution.append(s_solution)
+        '''
+
     return solution, solution_nodes
 
 def arrowhead_predicted_tad_list(nodes, df_solution_nodes_list):
