@@ -7,8 +7,6 @@ sys.path.insert(1, './tad_detection/evaluation/')
 import logging
 logger = logging.getLogger('training')
 
-import neptune.new as neptune
-
 import pandas as pd
 import numpy as np
 import os
@@ -18,189 +16,152 @@ from torch_geometric.nn.dense import DenseGraphConv
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch_geometric.utils import to_dense_batch, to_dense_adj
+import math
 
 #https://github.com/FilippoMB/Spectral-Clustering-with-Graph-Neural-Networks-for-Graph-Pooling/blob/master/Clustering.py
 #https://github.com/pyg-team/pytorch_geometric/blob/74245f3a680c1f6fd1944623e47d9e677b43e827/torch_geometric/nn/dense/mincut_pool.py
 #https://github.com/convei-lab/toptimize/blob/c4ef429c9174d8819279533ed8aead0fd2973791/toptimize/examples/proteins_mincut_pool.py
 
+class MinCutTAD_GraphClass(nn.Module):
+    def __init__(self, parameters_user):
+        super(MinCutTAD, self).__init__()
 
+        self.max_num_nodes = parameters_user["max_num_nodes"]
+        self.encoding_edge = parameters_user["encoding_edge"]
+        self.hidden_size = parameters_user["hidden_conv_size"]
+        self.number_genomic_annotations = len(parameters_user["genomic_annotations"])
+        self.num_layers = parameters_user["num_layers"]
+        self.num_classes = len(parameters_user["classes"])
+        self.pooling_type = parameters_user["pooling_type"]
 
-####test = GCNConv2(37, 32, add_self_loops=False, aggr='add')
-#ZWEITES EGAL
-#x.shape
-#Out[31]: torch.Size([1903, 37])
-#edge_index.shape
-#Out[32]: torch.Size([2, 4148])
+        self.convs = nn.ModuleList()
+        self.pools = nn.ModuleList()
+        self.rms = []
 
-'''
+        if self.encoding_edge:
+            self.convs.append(GCNConv(self.number_genomic_annotations, self.hidden_size, add_self_loops=False, aggr='add'))
+        else:
+            self.convs.append(GraphConv(self.number_genomic_annotations, self.hidden_size, aggr='add'))
 
-X_1 = GraphConvSkip(P['n_channels'],
-                    kernel_initializer='he_normal',
-                    activation=P['ACTIV'])([X_in, A_in])
+        # TODO
+        #We need sth. like: GCSConv - https://graphneural.network/layers/convolution/
+        #As far as I am able to say we don't have sth. likte this: https://pytorch-geometric.readthedocs.io/en/latest/modules/nn.html#torch_geometric.nn.conv.GraphConv
 
+        if self.num_layers > 1:
+            for i in range(self.num_layers):
+                self.convs.append(DenseGraphConv(self.hidden_size, self.hidden_size))
 
-## IF MINCUTPOOL
-Output:
-Reduced node features of shape ([batch], K, n_node_features);
-Reduced adjacency matrix of shape ([batch], K, K);
-If return_mask=True, the soft clustering matrix of shape ([batch], n_nodes, K).
-k: number of output nodes;
+        num_nodes = self.max_num_nodes
+        for i in range(self.num_layers - 1):
+            num_nodes = math.ceil(0.5 * num_nodes)
+            if self.pooling_type == 'linear':
+                self.pools.append(nn.Linear(self.hidden_size, num_nodes))
+            elif self.pooling_type == 'random':
+                self.rms.append(torch.rand(math.ceil(2 * num_nodes), num_nodes))
 
-#https://github.com/danielegrattarola/spektral/blob/master/spektral/layers/pooling/mincut_pool.py
+        self.lin1 = nn.Linear(self.hidden_size, self.hidden_size)
+        self.lin2 = nn.Linear(self.hidden_size, self.num_classes)
 
-'''
+    def forward(self, X, edge_index, edge_attr):
 
+        X = F.relu(self.convs[0](X, edge_index))
+        #X - torch.Size([2493, 8])
 
-'''
-Example stacking several layers:
+        X, mask = to_dense_batch(x=X)
+        #X - torch.Size([1, 2493, 8])
+        #mask - torch.Size([1, 2493])
+        adj = to_dense_adj(edge_index=edge_index, edge_attr=edge_attr)
+        #adj - torch.Size([1, 2493, 2493])
 
-class Residual(nn.Module):
-    def __init__(self, in_channels, num_hiddens, num_residual_hiddens):
-        super(Residual, self).__init__()
-        self._block = nn.Sequential(
-            nn.ReLU(True),
-            nn.Conv2d(in_channels=in_channels,
-                      out_channels=num_residual_hiddens,
-                      kernel_size=3, stride=1, padding=1, bias=False),
-            nn.ReLU(True),
-            nn.Conv2d(in_channels=num_residual_hiddens,
-                      out_channels=num_hiddens,
-                      kernel_size=1, stride=1, bias=False)
-        )
-    
-    def forward(self, x):
-        return x + self._block(x)
+        if self.pooling_type == "linear":
+            s = self.pools[0](X)
+        elif self.pooling_type == 'random':
+            s = self.rms[0][:X.size(1), :].unsqueeze(dim=0).expand(X.size(0), -1, -1).to(X.device)
+        #s - torch.Size([1, 2493, 1247])
 
+        X, adj, mc, o = dense_mincut_pool(X, adj, s, mask)
+        #X - torch.Size([1, 1247, 8])
+        #edge_index - torch.Size([1, 1247, 1247])
 
-class ResidualStack(nn.Module):
-    def __init__(self, in_channels, num_hiddens, num_residual_layers, num_residual_hiddens):
-        super(ResidualStack, self).__init__()
-        self._num_residual_layers = num_residual_layers
-        self._layers = nn.ModuleList([Residual(in_channels, num_hiddens, num_residual_hiddens)
-                             for _ in range(self._num_residual_layers)])
+        for i in range(1, self.num_layers - 1):
+            X = F.relu(self.convs[i](X, adj))
+            #x - torch.Size([1, 1247, 8]), torch.Size([1, 624, 8])
+            if self.pooling_type == "linear":
+                s = self.pools[i](X)
+            elif self.pooling_type == 'random':
+                s = self.rms[i][:X.size(1), :].unsqueeze(dim=0).expand(X.size(0), -1, -1).to(X.device)
+            #s - torch.Size([1, 1247, 624]),  torch.Size([1, 624, 312])
+            X, adj, mc_aux, o_aux = dense_mincut_pool(X, adj, s)
+            #x - torch.Size([1, 624, 8]), torch.Size([1, 312, 8])
+            #adj - torch.Size([1, 624, 624]), torch.Size([1, 312, 312])
+            #mc_aux -
+            # o_aux
+            mc += mc_aux
+            o += o_aux
 
-    def forward(self, x):
-        for i in range(self._num_residual_layers):
-            x = self._layers[i](x)
-        return F.relu(x)
-'''
+        X = self.convs[self.num_layers-1](X, adj)
+        #x - torch.Size([1, 312, 8])
 
-'''
-model = MincutPool(num_features=stats['num_features'], num_classes=stats['num_classes'],
-                   max_num_nodes=stats['max_num_nodes'], hidden=args.hidden_dim,
-                   pooling_type=args.pooling_type, num_layers=args.num_layers, encode_edge=encode_edge).to(device)
+        X = X.mean(dim=1)
+        #x - torch.Size([1, 8])
+        X = F.relu(self.lin1(X))
+        # x - torch.Size([1, 8])
+        X = self.lin2(X)
+        # x - torch.Size([1, 2])
 
-optimizer = Adam(model.parameters(), lr=args.lr)
-scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, min_lr=1e-5,
-                              patience=args.lr_decay_patience, verbose=True)
-
-if args.dataset == 'ZINC':
-    train = train_regression
-    evaluate = evaluate_regression
-
-train_sup_losses, train_lp_losses, train_entropy_losses = [], [], []
-val_sup_losses, val_lp_losses, val_entropy_losses = [], [], []
-test_sup_losses, test_lp_losses, test_entropy_losses = [], [], []
-val_accuracies, test_accuracies = [], []
-
-epochs_no_improve = 0  # used for early stopping
-for epoch in range(1, args.max_epochs + 1):
-
-    # train
-    train_sup_loss, train_lp_loss, train_entropy_loss = \
-        train(model, optimizer, train_loader, device)
-
-    # validation
-    val_acc, val_sup_loss, val_lp_loss, val_entropy_loss \
-        = evaluate(model, val_loader, device, evaluator=evaluator)
-
-    # test
-    test_acc, test_sup_loss, test_lp_loss, test_entropy_loss = \
-        evaluate(model, test_loader, device, evaluator=evaluator)
-
-    val_accuracies.append(val_acc)
-    test_accuracies.append(test_acc)
-
-    train_sup_losses.append(train_sup_loss)
-    train_lp_losses.append(train_lp_loss)
-    train_entropy_losses.append(train_entropy_loss)
-
-    val_sup_losses.append(val_sup_loss)
-    val_lp_losses.append(val_lp_loss)
-    val_entropy_losses.append(val_entropy_loss)
-
-    test_sup_losses.append(test_sup_loss)
-    test_lp_losses.append(test_lp_loss)
-    test_entropy_losses.append(test_entropy_loss)
-
-    if (epoch-1) % args.interval == 0:
-        print(f'{epoch:03d}: Train Sup Loss: {train_sup_loss:.3f}, '
-          f'Val Sup Loss: {val_sup_loss:.3f}, Val Acc: {val_accuracies[-1]:.3f}, '
-          f'Test Sup Loss: {test_sup_loss:.3f}, Test Acc: {test_accuracies[-1]:.3f}')
-
-    scheduler.step(val_acc)
-        
-   
-'''
+        return X, mc, o
 
 
 class MinCutTAD(nn.Module):
     def __init__(self, parameters_user, n_clust):
         super(MinCutTAD, self).__init__()
+
+        self.max_num_nodes = parameters_user["max_num_nodes"]
+        self.encoding_edge = parameters_user["encoding_edge"]
+        self.hidden_size = parameters_user["hidden_conv_size"]
+        self.number_genomic_annotations = len(parameters_user["genomic_annotations"])
+        self.num_layers = parameters_user["num_layers"]
+        self.num_classes = len(parameters_user["classes"])
+        self.pooling_type = parameters_user["pooling_type"]
         self.n_clust = n_clust
-        self.parameters_user = parameters_user
 
-        convs = nn.ModuleList()
-        pools = nn.ModuleList()
+        self.hidden_size = 32
 
-        if parameters_user["encoding_edge"]:
-            convs.append(GCNConv(len(parameters_user["genomic_annotations"]), parameters_user["hidden_conv_size"], add_self_loops=False, aggr='add'))
-        else:
-            convs.append(GraphConv(len(parameters_user["genomic_annotations"]), parameters_user["hidden_conv_size"], aggr='add'))
+        self.conv1 = GraphConv(self.number_genomic_annotations, self.hidden_size, aggr='add')
 
-        if parameters_user["num_layers"] > 1:
-            for i in range(parameters_user["num_layers"]):
-                convs.append(DenseGraphConv(8, 8))
+        self.mlp = nn.Sequential(
+            nn.Linear(self.hidden_size, math.ceil(self.hidden_size*2)),
+            nn.ReLU(),
+            nn.Linear(self.hidden_size*2, math.ceil(self.hidden_size/2)),
+            nn.ReLU(),
+            nn.Linear(math.ceil(self.hidden_size/2), math.ceil(self.hidden_size/4)),
+            nn.ReLU(),
+            nn.Linear(math.ceil(self.hidden_size/4), self.n_clust),
+        )
 
 
-        #for i in range(0, self.parameters_user["n_mincut_layer"]):
-        #    X, edge_index, mincut_loss, ortho_loss = dense_mincut_pool(X, edge_index, self.n_clust)  # n_clust muss Tensor werden
+    def forward(self, X, edge_index, edge_attr):
 
-        # TODO
-        #We need sth. like: GCSConv - https://graphneural.network/layers/convolution/
-        #As far as I am able to say we donÄt have sth. likte this: https://pytorch-geometric.readthedocs.io/en/latest/modules/nn.html#torch_geometric.nn.conv.GraphConv
+        X = self.conv1(X, edge_index) #hidden_size = 16
+        # X - torch.Size([2493, 16])
 
-    def forward(self, X, edge_index):
+        X, _ = to_dense_batch(x=X)
+        #X - torch.Size([1, 2493, 16])
 
-        X = F.relu(convs[0](X, edge_index))
+        adj = to_dense_adj(edge_index=edge_index, edge_attr=edge_attr)
+        #adj - torch.Size([1, 2493, 2493])
 
-        convs[1](X, edge_index)
+        s = X.detach()
+        s = self.mlp(s)
+        #s - torch.Size([1, 2493, 4]) #n_clust = 4
 
-        X, edge_index, mc, o = dense_mincut_pool(X, edge_index, self.n_clust)
+        X, adj, mc, o = dense_mincut_pool(X, adj, s)
+        #x - torch.Size([1, 4, 16])
+        #adj - torch.Size([1, 4, 4])
 
-        # labels_pred, #NOT SURE WHAT C is
-        #X, edge_index, labels_pred, C = dense_diff_pool(X, , edge_index, self.n_clust) #n_clust muss Tensor werden
-        #https://github.com/danielegrattarola/spektral/blob/master/spektral/layers/pooling/diff_pool.py
+        s = torch.softmax(s, dim=-1)
+        #s = np.where(s == 1)[2]
+        #np.argmax(s.detach().numpy(), axis=-1)
 
-        # TODO Check output
-
-        '''for i in range(1, self.num_layers - 1):
-            x = F.relu(self.convs[i](x, adj))
-            if self.pooling_type != 'mlp':
-                s = self.rms[i][:x.size(1), :].unsqueeze(dim=0).expand(x.size(0), -1, -1).to(x.device)
-            else:
-                s = self.pools[i](x)
-            x, adj, mc_aux, o_aux = dense_mincut_pool(x, adj, s)
-            mc += mc_aux
-            o += o_aux
-
-        x = self.convs[self.num_layers-1](x, adj)
-
-        x = x.mean(dim=1)
-        x = F.relu(self.lin1(x))
-        x = self.lin2(x)
-        '''
-
-        return X, mc, o
-
-        #return mincut_loss
+        return s, mc, o

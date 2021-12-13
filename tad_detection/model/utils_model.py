@@ -27,6 +27,21 @@ import os
 import scipy as sp
 import random
 import math
+import neptune.new as neptune
+from torch_geometric.utils import to_dense_batch, to_dense_adj
+
+def set_up_neptune(parameters):
+
+    run = neptune.init(
+        project="MinCutTAD/TAD",
+        tags="TAD01",
+        api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJmZGVkZDY5ZS03Yzg5LTQ1NmEtYWViYi1kZTgzMmJiNjViY2YifQ==",
+        source_files=["*.py"],
+    )
+
+    run["parameters"] = parameters
+
+    return run
 
 def _old_load_parameters(path_parameters_json):
     '''
@@ -76,7 +91,12 @@ def load_data(parameters):
     if X.shape[1] != y.shape[1]:
         raise ValueError('The shape of X and y does not fit together.')
 
-    return X, edge_index, edge_attr, y
+    max_num_nodes = 0
+    for X_cell_line in X:
+        for node_attributes in X_cell_line:
+            max_num_nodes = max(max_num_nodes, node_attributes.shape[0])
+
+    return X, max_num_nodes, edge_index, edge_attr, y
 
 def split_data(parameters, X, edge_index, edge_attr, y):
 
@@ -92,20 +112,20 @@ def split_data(parameters, X, edge_index, edge_attr, y):
             data_val_list_cross_2 = []
 
             for chromosome in range(X[0].shape[0]):
-                data_train_list_cross_1.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[0][chromosome])))
+                data_train_list_cross_1.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[0][chromosome]).long()))
             for chromosome in range(X[1].shape[0]):
-                data_train_list_cross_2.append(Data(x=torch.from_numpy(X[1][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[1][chromosome][0], edge_index[1][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[1][chromosome]), y=torch.from_numpy(y[1][chromosome])))
+                data_train_list_cross_2.append(Data(x=torch.from_numpy(X[1][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[1][chromosome][0], edge_index[1][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[1][chromosome]), y=torch.from_numpy(y[1][chromosome]).long()))
 
             test_chromosomes = random.sample(list(range(0, X[0].shape[0])), math.floor(np.round(X[0].shape[0]/2)))
             val_chromosomes = list(set(range(0, X[0].shape[0])) - set(test_chromosomes))
 
             for chromosome in test_chromosomes:
-                data_test_list_cross_1.append(Data(x=torch.from_numpy(X[1][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[1][chromosome][0], edge_index[1][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[1][chromosome]))) #[test_chromosomes,:]
-                data_test_list_cross_2.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[1][chromosome]), y=torch.from_numpy(y[0][chromosome]))) #[test_chromosomes,:]
+                data_test_list_cross_1.append(Data(x=torch.from_numpy(X[1][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[1][chromosome][0], edge_index[1][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[1][chromosome]).long())) #[test_chromosomes,:]
+                data_test_list_cross_2.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[1][chromosome]), y=torch.from_numpy(y[0][chromosome]).long())) #[test_chromosomes,:]
 
             for chromosome in val_chromosomes:
-                data_val_list_cross_1.append(Data(x=torch.from_numpy(X[1][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[1][chromosome][0], edge_index[1][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[1][chromosome]))) #[val_chromosomes,:]
-                data_val_list_cross_2.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[1][chromosome]), y=torch.from_numpy(y[0][chromosome]))) #[val_chromosomes,:]
+                data_val_list_cross_1.append(Data(x=torch.from_numpy(X[1][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[1][chromosome][0], edge_index[1][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[1][chromosome]).long())) #[val_chromosomes,:]
+                data_val_list_cross_2.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[1][chromosome]), y=torch.from_numpy(y[0][chromosome]).long())) #[val_chromosomes,:]
 
             return data_train_list_cross_1, data_test_list_cross_1, data_val_list_cross_1, data_train_list_cross_2, data_test_list_cross_2, data_val_list_cross_2
 
@@ -217,7 +237,7 @@ def choose_optimal_n_clust(silhouette_score_list):
 
     return optimal_n_clust
 
-def metrics_calculation(X, labels, labels_true):
+def metrics_calculation(edge_index, edge_attr, labels, labels_true):
     '''
 
     :param X:
@@ -228,7 +248,9 @@ def metrics_calculation(X, labels, labels_true):
 
     # labels-array-like of shape (n_samples,) - Predicted labels for each sample.
 
-    silhouette_score_calc = silhouette_score(X, labels)  # The Silhouette Coefficient is calculated using the mean intra-cluster distance (a) and the mean nearest-cluster distance (b) for each sample. The Silhouette Coefficient for a sample is (b - a) / max(a, b). To clarify, b is the distance between a sample and the nearest cluster that the sample is not a part of. Note that Silhouette Coefficient is only defined if number of labels is 2 <= n_labels <= n_samples - 1. The best value is 1 and the worst value is -1. Values near 0 indicate overlapping clusters. Negative values generally indicate that a sample has been assigned to the wrong cluster, as a different cluster is more similar.
+    adj = to_dense_adj(edge_index=edge_index, edge_attr=edge_attr)[0]
+
+    silhouette_score_calc = silhouette_score(adj, labels)  # The Silhouette Coefficient is calculated using the mean intra-cluster distance (a) and the mean nearest-cluster distance (b) for each sample. The Silhouette Coefficient for a sample is (b - a) / max(a, b). To clarify, b is the distance between a sample and the nearest cluster that the sample is not a part of. Note that Silhouette Coefficient is only defined if number of labels is 2 <= n_labels <= n_samples - 1. The best value is 1 and the worst value is -1. Values near 0 indicate overlapping clusters. Negative values generally indicate that a sample has been assigned to the wrong cluster, as a different cluster is more similar.
     # Xarray-like of shape (n_samples_a, n_samples_a) if metric == “precomputed” or (n_samples_a, n_features) otherwise - An array of pairwise distances between samples, or a feature array.
     silhouette_samples_calc = silhouette_samples(X, labels)  # The Silhouette Coefficient is a measure of how well samples are clustered with samples that are similar to themselves. Clustering models with a high Silhouette Coefficient are said to be dense, where samples in the same cluster are similar to each other, and well separated, where samples in different clusters are not very similar to each other. - The Silhouette Coefficient is calculated using the mean intra-cluster distance (a) and the mean nearest-cluster distance (b) for each sample. The Silhouette Coefficient for a sample is (b - a) / max(a, b). Note that Silhouette Coefficient is only defined if number of labels is 2 <= n_labels <= n_samples - 1. - This function returns the Silhouette Coefficient for each sample. - The best value is 1 and the worst value is -1. Values near 0 indicate overlapping clusters.
     # Xarray-like of shape (n_samples_a, n_samples_a) if metric == “precomputed” or (n_samples_a, n_features) otherwise - An array of pairwise distances between samples, or a feature array.
