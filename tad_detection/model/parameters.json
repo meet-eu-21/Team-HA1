@@ -1,5 +1,5 @@
 {
-  "activation_function": "elu",
+  "activation_function": "Relu",
   "dataset_path": "/data/analysis/ag-reils/ag-reils-shared/Hi-C/meeteu/data/",
   "dataset_name": "GM12878_CTCF_RAD21_SMC3_Number_HousekeepingGenes_100kb_no_threshold_graph_vertex_no_threshold_graph_edge",
   "classes": ["TAD", "No_TAD"],

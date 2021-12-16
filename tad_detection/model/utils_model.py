@@ -34,8 +34,9 @@ def set_up_neptune(parameters):
 
     run = neptune.init(
         project="MinCutTAD/TAD",
-        tags="TAD01",
-        api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJmZGVkZDY5ZS03Yzg5LTQ1NmEtYWViYi1kZTgzMmJiNjViY2YifQ==",
+        tags="Debugging",
+        # api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJmZGVkZDY5ZS03Yzg5LTQ1NmEtYWViYi1kZTgzMmJiNjViY2YifQ==",
+        api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIyNDZjOTY2NS1mMjc5LTQxZjAtYjJiMC0wNTNhZDI1MmM5ZDcifQ==",
         source_files=["*.py"],
     )
 
@@ -153,7 +154,7 @@ def split_data(parameters, X, edge_index, edge_attr, y):
             return data_train_list, data_test_list, data_val_list, 0, 0, 0
 
     else:
-        raise NotImplementedError("The validation ,training and test data sizes do not sum up to 1. Training aborted.")
+        raise NotImplementedError("The validation, training and test data sizes do not sum up to 1. Training aborted.")
 
 
 def torch_geometric_data_generation_dataloader(data_train_cross_1, data_test_cross_1, data_val_cross_1, data_train_cross_2, data_test_cross_2, data_val_cross_2):

@@ -5,9 +5,9 @@ sys.path.insert(1, './tad_detection/model/')
 sys.path.insert(1, './tad_detection/evaluation/')
 
 import numpy as np
-from utils_general import load_parameters, set_up_logger
-from utils_model import set_up_neptune, load_data, split_data, torch_geometric_data_generation_dataloader, load_optimizer, save_model, generate_metrics_plots, choose_optimal_n_clust, metrics_calculation, calculation_graph_matrix_representation, save_tad_list
-from mincuttad import MinCutTAD
+from tad_detection.utils_general import load_parameters, set_up_logger
+from tad_detection.model.utils_model import set_up_neptune, load_data, split_data, torch_geometric_data_generation_dataloader, load_optimizer, save_model, generate_metrics_plots, choose_optimal_n_clust, metrics_calculation, calculation_graph_matrix_representation, save_tad_list
+from tad_detection.model.mincuttad import MinCutTAD
 import pandas as pd
 import os
 import argparse
@@ -50,21 +50,29 @@ def train(model, dataloader_train, dataloader_test, optimizer, scheduler, parame
             start_time_mincutad = time.time()
 
             out, lp_loss, entropy_loss = model(X, edge_index, edge_attr)
+            # print(lp_loss)
+            # print(entropy_loss)
             #out = F.log_softmax(out, dim=-1)
-            labels = np.argmax(out.detach().numpy(), axis=-1)[0]
+            labels = np.argmax(out.cpu().detach().numpy(), axis=-1)[0]
             #####
             #y_pred = out[:, 1]
             #y_pred = torch.cat(y_pred, dim=0)
             #####
 
             loss = F.nll_loss(out[0], y.view(-1).long(), reduction='mean')
+
             # run["logs/training/batch/loss"].log(loss)
             loss.backward()
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0)
             #NOTSURE WHAT THIS DOES
+            # -> gradient clipping prevents exploding gradients and the problems caused by it. The threshold could/is
+            # also a hyperparameter
 
             optimizer.step()
+
+            run["loss"].log(loss)
+
 
             '''
             total_ce_loss += loss.item() * data.num_graphs
@@ -134,9 +142,10 @@ def final_validation():
 
 
 if __name__ == "__main__":
-
+    print('hello')
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path_parameters_json", help=" to JSON with parameters.", type=str, required=True)
+    # parser.add_argument("--path_parameters_json", help=" to JSON with parameters.", type=str, required=True)
+    parser.add_argument("--path_parameters_json", help=" to JSON with parameters.", type=str, default='../tad_detection/model/parameters.json')
     args = parser.parse_args()
     path_parameters_json = args.path_parameters_json
     # path_parameters_json = "./tad_detection/model/parameters.json"

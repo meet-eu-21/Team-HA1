@@ -131,13 +131,13 @@ class MinCutTAD(nn.Module):
         self.conv1 = GraphConv(self.number_genomic_annotations, self.hidden_size, aggr='add')
 
         self.mlp = nn.Sequential(
-            nn.Linear(self.hidden_size, math.ceil(self.hidden_size*2)),
+            nn.Linear(self.hidden_size, math.ceil(self.hidden_size * 2)),
             nn.ReLU(),
-            nn.Linear(self.hidden_size*2, math.ceil(self.hidden_size/2)),
+            nn.Linear(math.ceil(self.hidden_size * 2), math.ceil(self.hidden_size * 4)),
             nn.ReLU(),
-            nn.Linear(math.ceil(self.hidden_size/2), math.ceil(self.hidden_size/4)),
+            nn.Linear(math.ceil(self.hidden_size * 4), math.ceil(self.hidden_size * 2)),
             nn.ReLU(),
-            nn.Linear(math.ceil(self.hidden_size/4), self.n_clust),
+            nn.Linear(math.ceil(self.hidden_size * 2), n_clust),
         )
 
 
@@ -152,8 +152,9 @@ class MinCutTAD(nn.Module):
         adj = to_dense_adj(edge_index=edge_index, edge_attr=edge_attr)
         #adj - torch.Size([1, 2493, 2493])
 
-        s = X.detach()
-        s = self.mlp(s)
+        # s = X.detach()
+        s = self.mlp(X)
+
         #s - torch.Size([1, 2493, 4]) #n_clust = 4
 
         X, adj, mc, o = dense_mincut_pool(X, adj, s)
