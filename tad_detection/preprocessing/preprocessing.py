@@ -52,3 +52,4 @@ if __name__ == "__main__":
     node_features_list = combine_genomic_annotations_and_housekeeping_genes(parameters, dict_genomic_annotations, dict_housekeeping_genes, arrowhead_solution_list)
 
     save_adjacency_matrix_node_features_labels(parameters, edge_index_list, adjacency_matrices_source_information_list, node_features_list, edge_attr_list, arrowhead_solution_list)
+    logger.info(f"Wrote data to {parameters['output_directory']}")

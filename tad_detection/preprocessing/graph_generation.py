@@ -27,11 +27,11 @@ def load_adjacency_matrix(parameters):
         path_list_dict[cell_line] = {}
         for chromosome in parameters["chromosomes_str_long"]:
             adjacency_matrices_source_information_list.append(cell_line  + "-" + chromosome)
-            path_list_dict[cell_line][chromosome]  = list(Path(os.path.join(parameters["hic_matrix_directory"], cell_line, "/" + parameters["resolution_hic_matrix_string"] + "_resolution_intrachromosomal/")).rglob(chromosome_name + "_100kb.RAWobserved"))
+            path_list_dict[cell_line][chromosome] = list(Path(os.path.join(parameters["hic_matrix_directory"], cell_line, parameters["resolution_hic_matrix_string"] + "_resolution_intrachromosomal/")).rglob(chromosome + "_"  + parameters["resolution_hic_matrix_string"] + ".RAWobserved"))
 
             lines = []
 
-            for file in path_list_dict[chromosome]:
+            for file in path_list_dict[cell_line][chromosome]:
                 with open(file, 'r') as f:
                     lines_sub = f.read().splitlines()
                 print(len(lines_sub))

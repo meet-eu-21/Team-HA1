@@ -143,13 +143,13 @@ class MinCutTAD(nn.Module):
 
     def forward(self, X, edge_index, edge_attr):
 
-        X = self.conv1(X, edge_index) #hidden_size = 16
+        X = self.conv1(X, edge_index, edge_attr.float()) #hidden_size = 16
         # X - torch.Size([2493, 16])
 
         X, _ = to_dense_batch(x=X)
         #X - torch.Size([1, 2493, 16])
 
-        adj = to_dense_adj(edge_index=edge_index, edge_attr=edge_attr)
+        adj = to_dense_adj(edge_index=edge_index, edge_attr=edge_attr.float())
         #adj - torch.Size([1, 2493, 2493])
 
         # s = X.detach()

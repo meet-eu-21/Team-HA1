@@ -27,7 +27,7 @@ def generate_dict_genomic_annotations(parameters, cell_line):
             file_RAD21 = pyBigWig.open(parameters["genomic_annotations_RAD21_GM12878"])
         if 'SMC3' in parameters["genomic_annotations"]:
             file_SMC3 = pyBigWig.open(parameters["genomic_annotations_SMC3_GM12878"])
-    elif cell_line == 'IMR90':
+    elif cell_line == 'IMR-90':
         file_for_chr_len = pyBigWig.open(
             parameters[f"genomic_annotations_{parameters['genomic_annotations'][0]}_IMR-90"])
         if 'CTCF' in parameters["genomic_annotations"]:

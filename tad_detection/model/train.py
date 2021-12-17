@@ -54,10 +54,6 @@ def train(model, dataloader_train, dataloader_test, optimizer, scheduler, parame
             # print(entropy_loss)
             #out = F.log_softmax(out, dim=-1)
             labels = np.argmax(out.cpu().detach().numpy(), axis=-1)[0]
-            #####
-            #y_pred = out[:, 1]
-            #y_pred = torch.cat(y_pred, dim=0)
-            #####
 
             loss = F.nll_loss(out[0], y.view(-1).long(), reduction='mean')
 
@@ -199,7 +195,7 @@ if __name__ == "__main__":
     plqceholder = True
 
     if plqceholder:
-        model = MinCutTAD(parameters, 4).to(device)
+        model = MinCutTAD(parameters, 50).to(device)
         optimizer, scheduler = load_optimizer(model, parameters)
 
         if dataloader_train_cross_2 == 0 & dataloader_test_cross_2 == 0:
