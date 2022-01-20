@@ -8,29 +8,25 @@ import logging
 logger = logging.getLogger('training')
 
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.metrics import silhouette_score, silhouette_samples, homogeneity_score, completeness_score, v_measure_score, calinski_harabasz_score, davies_bouldin_score
 from torch_geometric.utils import get_laplacian
-from sklearn.decomposition import PCA
-from torch_geometric.utils import add_self_loops, remove_self_loops
-from torch_geometric.utils.num_nodes import maybe_num_nodes
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
-from torch_scatter import scatter_add
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-import json
-import logging
 import os
-import scipy as sp
 import random
 import math
 import neptune.new as neptune
-from torch_geometric.utils import to_dense_batch, to_dense_adj
+import pickle
+from model.mincuttad import MinCutTAD
 
 def set_up_neptune(parameters):
+    '''
+    Function sets up neptune for hyperparameter and training progress logging.
+
+    :param parameters: dictionary with parameters set in parameters.json file
+    :return run: neptune logger
+    '''
 
     run = neptune.init(
         project="MinCutTAD/TAD",
@@ -44,48 +40,24 @@ def set_up_neptune(parameters):
 
     return run
 
-def _old_load_parameters(path_parameters_json):
-    '''
-    Function loads the parameters from the provided parameters.json file in a dictionary.
-
-    :param path_parameters_json: path of parameters.json file
-    :return parameters: dictionary with parameters set in parameters.json file.
-    '''
-
-    with open(path_parameters_json) as parameters_json:
-        parameters = json.load(parameters_json)
-
-    return parameters
-
-
-def _old_set_up_logger(parameters):
-    '''
-    Function sets a global logger for documentation of information and errors in the execution of the chosen script.
-
-    :param parameters: dictionary with parameters set in parameters.json file.
-    '''
-
-    logger = logging.getLogger('training')
-    logger.setLevel(logging.DEBUG)
-    fh = logging.FileHandler(os.path.join(parameters["output_directory"], 'training', 'training.log'))
-    fh.setLevel(logging.DEBUG)
-    logger.addHandler(fh)
-
-    logger.info("Training with the following parameters:")
-    for parameter in parameters.keys():
-        logger.info(parameter + ": " + str(parameters[parameter]))
-
 def load_data(parameters):
     '''
+    Function loads X (node_features), edge_index, edge_attr, y (One-hot encoded TADs called by Arrowhead [Ground truth]) from the output directory given in parameters.
 
     :param parameters: dictionary with parameters set in parameters.json file
-    :return:
+    :return X: node (genomic bins in adjacency graph) features of graph (e.g. prevalence of CTCF or one-hot encoded housekeeping genes presence)
+    :return max_num_nodes: maximal number of nodes in dataset
+    :return edge_index: representation of adjacency matrix of graph, gives nodes and edges between nodes
+    :return edge_attr: representation of adjacency matrix of graph, gives attributes (e.g. weight) of edges in edge_index
+    :return y: TAD or No-TAD labels of nodes in graph (genomic bins in adjacency graph)
+    :return source_information: source informations of chromosomes and cell lines
     '''
 
     X = np.load(os.path.join(parameters["dataset_path"], parameters["dataset_name"], parameters["dataset_name"] + "_X.npy"), allow_pickle=True)
     edge_index = np.load(os.path.join(parameters["dataset_path"], parameters["dataset_name"], parameters["dataset_name"] + "_edge_index.npy"), allow_pickle=True)
     edge_attr = np.load(os.path.join(parameters["dataset_path"], parameters["dataset_name"], parameters["dataset_name"] + "_edge_attr.npy"), allow_pickle=True)
     y = np.load(os.path.join(parameters["dataset_path"], parameters["dataset_name"], parameters["dataset_name"] + "_y.npy"), allow_pickle=True)
+    source_information = np.load(os.path.join(parameters["dataset_path"], parameters["dataset_name"], parameters["dataset_name"] + "_source_information.npy"), allow_pickle=True)
 
     if X.shape[1] != edge_index.shape[1]:
         raise ValueError('The shape of X and the edge_index does not fit together.')
@@ -97,9 +69,25 @@ def load_data(parameters):
         for node_attributes in X_cell_line:
             max_num_nodes = max(max_num_nodes, node_attributes.shape[0])
 
-    return X, max_num_nodes, edge_index, edge_attr, y
+    return X, max_num_nodes, edge_index, edge_attr, y, source_information
 
-def split_data(parameters, X, edge_index, edge_attr, y):
+def split_data(parameters, X, edge_index, edge_attr, y, source_information):
+    '''
+    Function splits X, edge_index, edge_attr and y in a training, test and validation dataset (Can also be used for cross-validation.).
+
+    :param parameters: dictionary with parameters set in parameters.json file
+    :param X: node (genomic bins in adjacency graph) features of graph (e.g. prevalence of CTCF or one-hot encoded housekeeping genes presence)
+    :param edge_index: representation of adjacency matrix of graph, gives nodes and edges between nodes
+    :param edge_attr: representation of adjacency matrix of graph, gives attributes (e.g. weight) of edges in edge_index
+    :param y: TAD or No-TAD labels of nodes in graph (genomic bins in adjacency graph)
+    :param source_information: source informations of chromosomes and cell lines
+    :return data_train_list_cross_1: training dataset (1 for cross-validation)
+    :return data_test_list_cross_1: test dataset (1 for cross-validation)
+    :return data_val_list_cross_1: validation dataset (1 for cross-validation)
+    :return data_train_list_cross_2: training dataset 2 for cross-validation
+    :return data_test_list_cross_2: test dataset 2 for cross-validation
+    :return data_val_list_cross_2: validation dataset 2 for cross-validation
+    '''
 
     if parameters["proportion_val_set"] + parameters["proportion_test_set"] + parameters["proportion_train_set"] == 1:
         if X.shape[0] == 2:
@@ -113,20 +101,20 @@ def split_data(parameters, X, edge_index, edge_attr, y):
             data_val_list_cross_2 = []
 
             for chromosome in range(X[0].shape[0]):
-                data_train_list_cross_1.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[0][chromosome]).long()))
+                data_train_list_cross_1.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[0][chromosome]), source_information=source_information[0][chromosome]))
             for chromosome in range(X[1].shape[0]):
-                data_train_list_cross_2.append(Data(x=torch.from_numpy(X[1][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[1][chromosome][0], edge_index[1][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[1][chromosome]), y=torch.from_numpy(y[1][chromosome]).long()))
+                data_train_list_cross_2.append(Data(x=torch.from_numpy(X[1][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[1][chromosome][0], edge_index[1][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[1][chromosome]), y=torch.from_numpy(y[1][chromosome]), source_information=source_information[1][chromosome]))
 
             test_chromosomes = random.sample(list(range(0, X[0].shape[0])), math.floor(np.round(X[0].shape[0]/2)))
             val_chromosomes = list(set(range(0, X[0].shape[0])) - set(test_chromosomes))
 
             for chromosome in test_chromosomes:
-                data_test_list_cross_1.append(Data(x=torch.from_numpy(X[1][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[1][chromosome][0], edge_index[1][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[1][chromosome]).long())) #[test_chromosomes,:]
-                data_test_list_cross_2.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[1][chromosome]), y=torch.from_numpy(y[0][chromosome]).long())) #[test_chromosomes,:]
+                data_test_list_cross_1.append(Data(x=torch.from_numpy(X[1][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[1][chromosome][0], edge_index[1][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[1][chromosome]), y=torch.from_numpy(y[1][chromosome]), source_information=source_information[1][chromosome]))
+                data_test_list_cross_2.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[0][chromosome]), source_information=source_information[0][chromosome]))
 
             for chromosome in val_chromosomes:
-                data_val_list_cross_1.append(Data(x=torch.from_numpy(X[1][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[1][chromosome][0], edge_index[1][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[1][chromosome]).long())) #[val_chromosomes,:]
-                data_val_list_cross_2.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[1][chromosome]), y=torch.from_numpy(y[0][chromosome]).long())) #[val_chromosomes,:]
+                data_val_list_cross_1.append(Data(x=torch.from_numpy(X[1][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[1][chromosome][0], edge_index[1][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[1][chromosome]), y=torch.from_numpy(y[1][chromosome]), source_information=source_information[1][chromosome]))
+                data_val_list_cross_2.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[0][chromosome]), source_information=source_information[0][chromosome]))
 
             return data_train_list_cross_1, data_test_list_cross_1, data_val_list_cross_1, data_train_list_cross_2, data_test_list_cross_2, data_val_list_cross_2
 
@@ -141,15 +129,11 @@ def split_data(parameters, X, edge_index, edge_attr, y):
             data_val_list = []
 
             for chromosome in train_chromosomes:
-                data_train_list.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[0][chromosome])))
+                data_train_list.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]).long(), y=torch.from_numpy(y[0][chromosome]).int(), source_information=source_information[0][chromosome]))
             for chromosome in test_chromosomes:
-                data_test_list.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[0][chromosome])))
+                data_test_list.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]).long(), y=torch.from_numpy(y[0][chromosome]).int(), source_information=source_information[0][chromosome]))
             for chromosome in val_chromosomes:
-                data_val_list.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]), y=torch.from_numpy(y[0][chromosome])))
-
-            # x: .astype("float32")
-            # edge_index: .type(torch.LongTensor)
-            # y: .type(torch.LongTensor)
+                data_val_list.append(Data(x=torch.from_numpy(X[0][chromosome]).float(), edge_index=torch.from_numpy(np.array([edge_index[0][chromosome][0], edge_index[0][chromosome][1]], dtype="int64")), edge_attr=torch.from_numpy(edge_attr[0][chromosome]).long(), y=torch.from_numpy(y[0][chromosome]).int(), source_information=source_information[0][chromosome]))
 
             return data_train_list, data_test_list, data_val_list, 0, 0, 0
 
@@ -158,6 +142,22 @@ def split_data(parameters, X, edge_index, edge_attr, y):
 
 
 def torch_geometric_data_generation_dataloader(data_train_cross_1, data_test_cross_1, data_val_cross_1, data_train_cross_2, data_test_cross_2, data_val_cross_2):
+    '''
+    Function generates dataloaders from training, test and validation datasets.
+
+    :param data_train_cross_1: training dataset (1 for cross-validation)
+    :param data_test_cross_1: test dataset (1 for cross-validation)
+    :param data_val_cross_1: validation dataset (1 for cross-validation)
+    :param data_train_cross_2: training dataset 2 for cross-validation
+    :param data_test_cross_2: test dataset 2 for cross-validation
+    :param data_val_cross_2: validation dataset 2 for cross-validation
+    :return dataloader_train_cross_1: dataloader training (1 for cross-validation)
+    :return dataloader_test_cross_1: dataloader training (1 for cross-validation)
+    :return dataloader_val_cross_1: dataloader testing (1 for cross-validation)
+    :return dataloader_train_cross_2: dataloader training 2 for cross-validation
+    :return dataloader_test_cross_2: dataloader testing 2 for cross-validation
+    :return dataloader_val_cross_2: dataloader validation 2 for cross-validation
+    '''
 
     dataloader_train_cross_1 = DataLoader(data_train_cross_1, batch_size=1)
     dataloader_test_cross_1 = DataLoader(data_test_cross_1, batch_size=1)
@@ -177,6 +177,14 @@ def torch_geometric_data_generation_dataloader(data_train_cross_1, data_test_cro
 
 
 def load_optimizer(model, parameters_user):
+    '''
+    Function loads an optimizer and scheduler for the model.
+
+    :param model: Untrained PyTorch model
+    :param parameters_user: dictionary with parameters set in parameters.json file
+    :return optimizer: PyTorch optimizer
+    :return scheduler: PyTorch scheduler
+    '''
 
     if parameters_user["optimizer"] == "adam":
         optimizer = torch.optim.Adam(model.parameters(),
@@ -194,192 +202,64 @@ def load_optimizer(model, parameters_user):
     return optimizer, scheduler
 
 def save_model(model, epoch_num, n_clust, parameters):
+    '''
+    Function saves a trained model for a specific n_clust and epoch_num.
+
+    :param model: PyTorch model with trained weights
+    :param epoch_num: epoch number
+    :param n_clust: number of clusters for MinCutTAD prediction
+    :param parameters: dictionary with parameters set in parameters.json file
+    '''
 
     model_dict = model.state_dict()
-    torch.save(model_dict, f'{parameters["output_directory"]}/models/mincut_model_{n_clust}_{parameters["dataset_name"]}_epoch_{epoch_num}_activation_function_{parameters["activation_function"]}_learning_rate_{parameters["learning_rate"]}_n_channels_{parameters["n_channels"]}_optimizer_{parameters["optimizer"]}_type_laplacian_{parameters["type_laplacian"]}_weight_decay_{parameters["weight_decay"]}.model')
 
-def load_model(n_clust_test_optimum, epoch_num_optimum, parameters):
-
-    model = torch.load(f'{parameters["output_directory"]}/models/mincut_model_{n_clust_test_optimum}_{parameters["dataset_name"]}_epoch_{epoch_num_optimum}_activation_function_{parameters["activation_function"]}_learning_rate_{parameters["learning_rate"]}_n_channels_{parameters["n_channels"]}_optimizer_{parameters["optimizer"]}_type_laplacian_{parameters["type_laplacian"]}_weight_decay_{parameters["weight_decay"]}.model')
-
-    return model
-
-def generate_metrics_plots(score_metrics_clustering, output_directory):
-    '''
-
-    :param score_metrics_clustering:
-    :param output_directory:
-    :return:
-    '''
-
-    for metric in list(score_metrics_clustering.columns)[1:]:
-        plt.plot("Number clusters", metric, data=score_metrics_clustering)
-        plt.xlabel("Number clusters")
-        plt.ylabel(metric)
-        #plt.show()
-        plt.plt.savefig(os.path.join(output_directory, "training", metric + "_vs_n_clust.png"))
-
-    for metric in list(score_metrics_clustering.columns)[1:]:
-        plt.plot("Number clusters", metric, data=score_metrics_clustering)
-    plt.xlabel("Number clusters")
-    plt.ylabel("Values of metric")
-    plt.legend()
-    #plt.show()
-    plt.plt.savefig(os.path.join(output_directory, "training", "All_metrics_vs_n_clust.png"))
-
-def choose_optimal_n_clust(silhouette_score_list):
-    '''
-
-    :param silhouette_score_list:
-    :return:
-    '''
-
-    optimal_n_clust = np.where(np.array(silhouette_score_list) == max(silhouette_score_list))[0][0]
-
-    return optimal_n_clust
-
-def metrics_calculation(edge_index, edge_attr, labels, labels_true):
-    '''
-
-    :param X:
-    :param labels:
-    :param labels_true:
-    :return:
-    '''
-
-    # labels-array-like of shape (n_samples,) - Predicted labels for each sample.
-
-    adj = to_dense_adj(edge_index=edge_index, edge_attr=edge_attr)[0]
-
-    silhouette_score_calc = silhouette_score(adj, labels)  # The Silhouette Coefficient is calculated using the mean intra-cluster distance (a) and the mean nearest-cluster distance (b) for each sample. The Silhouette Coefficient for a sample is (b - a) / max(a, b). To clarify, b is the distance between a sample and the nearest cluster that the sample is not a part of. Note that Silhouette Coefficient is only defined if number of labels is 2 <= n_labels <= n_samples - 1. The best value is 1 and the worst value is -1. Values near 0 indicate overlapping clusters. Negative values generally indicate that a sample has been assigned to the wrong cluster, as a different cluster is more similar.
-    # Xarray-like of shape (n_samples_a, n_samples_a) if metric == “precomputed” or (n_samples_a, n_features) otherwise - An array of pairwise distances between samples, or a feature array.
-    silhouette_samples_calc = silhouette_samples(X, labels)  # The Silhouette Coefficient is a measure of how well samples are clustered with samples that are similar to themselves. Clustering models with a high Silhouette Coefficient are said to be dense, where samples in the same cluster are similar to each other, and well separated, where samples in different clusters are not very similar to each other. - The Silhouette Coefficient is calculated using the mean intra-cluster distance (a) and the mean nearest-cluster distance (b) for each sample. The Silhouette Coefficient for a sample is (b - a) / max(a, b). Note that Silhouette Coefficient is only defined if number of labels is 2 <= n_labels <= n_samples - 1. - This function returns the Silhouette Coefficient for each sample. - The best value is 1 and the worst value is -1. Values near 0 indicate overlapping clusters.
-    # Xarray-like of shape (n_samples_a, n_samples_a) if metric == “precomputed” or (n_samples_a, n_features) otherwise - An array of pairwise distances between samples, or a feature array.
-    homogeneity_score_calc = homogeneity_score(labels, labels_true)  # A clustering result satisfies homogeneity if all of its clusters contain only data points which are members of a single class. This metric is independent of the absolute values of the labels: a permutation of the class or cluster label values won’t change the score value in any way.
-    completeness_score_calc = completeness_score(labels, labels_true)  # A clustering result satisfies completeness if all the data points that are members of a given class are elements of the same cluster. - This metric is independent of the absolute values of the labels: a permutation of the class or cluster label values won’t change the score value in any way.
-    v_measure_score_calc = v_measure_score(labels, labels_true)  # The V-measure is the harmonic mean between homogeneity and completeness: v = (1 + beta) * homogeneity * completeness / (beta * homogeneity + completeness)
-    calinski_harabasz_score_calc = calinski_harabasz_score(X, labels)  # The score is defined as ratio between the within-cluster dispersion and the between-cluster dispersion.
-    # X-array-like of shape (n_samples, n_features) - A list of n_features-dimensional data points. Each row corresponds to a single data point.
-    davies_bouldin_score_calc = davies_bouldin_score(X, labels)  # The score is defined as the average similarity measure of each cluster with its most similar cluster, where similarity is the ratio of within-cluster distances to between-cluster distances. Thus, clusters which are farther apart and less dispersed will result in a better score. The minimum score is zero, with lower values indicating better clustering.
-    # X-array-like of shape (n_samples, n_features) - A list of n_features-dimensional data points. Each row corresponds to a single data point.
-
-    return silhouette_score_calc, silhouette_samples_calc, homogeneity_score_calc, completeness_score_calc, v_measure_score_calc, calinski_harabasz_score_calc, davies_bouldin_score_calc
-
-def calculate_laplacian(type_laplacian, edge_index, edge_attr):
-    '''
-
-    :param type_laplacian:
-    :param edge_index:
-    :param X:
-    :return:
-    '''
-
-    if type_laplacian == "unweighted_laplacian":
-        #get_laplacian(edge_index = edge_index, normalization = "sym")
-        print("Currently not implemented.")
-    elif type_laplacian == "weighted_laplacian":
-        #pca = PCA(n_components=1)
-        #edge_weight = pca.fit_transform(X)
-        #logger.info("Explained variance ratio: " + str(pca.explained_variance_ratio_))
-        #logger.info("Explained singular values: " + str(pca.singular_values_))
-        #edge_index = get_laplacian(edge_index = edge_index, edge_weight = torch.from_numpy(edge_weight), normalization = "sym")
-        edge_index, edge_weight = get_laplacian(edge_index=edge_index, edge_weight=edge_attr, normalization="sym")
-    return edge_index, edge_weight
-
-    '''Alternatives:
-    from scipy.sparse.csgraph import laplacian
-
-    laplacian(G, normed=True) #Edge weight is not taken into account #Normalization done in cresswell #Doc: https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csgraph.laplacian.html
-
-    networkx.linalg.laplacianmatrix.normalized_laplacian_matrix
-    normalized_laplacian_matrix(G, nodelist=None, weight='weight')
-    #The edge data key used to compute each value in the matrix. If None, then each edge has weight 1.
-
-    networkx.linalg.laplacianmatrix.laplacian_matrix
-    laplacian_matrix(G, nodelist=None, weight='weight')
-    '''
-
-
-
-'''
-def get_laplacian(edge_index, edge_weight: Optional[torch.Tensor] = None,
-                  normalization: Optional[str] = None,
-                  dtype: Optional[int] = None,
-                  num_nodes: Optional[int] = None):
-    r""" Computes the graph Laplacian of the graph given by :obj:`edge_index`
-    and optional :obj:`edge_weight`.
-
-    Args:
-        edge_index (LongTensor): The edge indices.
-        edge_weight (Tensor, optional): One-dimensional edge weights.
-            (default: :obj:`None`)
-        normalization (str, optional): The normalization scheme for the graph
-            Laplacian (default: :obj:`None`):
-
-            1. :obj:`None`: No normalization
-            :math:`\mathbf{L} = \mathbf{D} - \mathbf{A}`
-
-            2. :obj:`"sym"`: Symmetric normalization
-            :math:`\mathbf{L} = \mathbf{I} - \mathbf{D}^{-1/2} \mathbf{A}
-            \mathbf{D}^{-1/2}`
-
-            3. :obj:`"rw"`: Random-walk normalization
-            :math:`\mathbf{L} = \mathbf{I} - \mathbf{D}^{-1} \mathbf{A}`
-        dtype (torch.dtype, optional): The desired data type of returned tensor
-            in case :obj:`edge_weight=None`. (default: :obj:`None`)
-        num_nodes (int, optional): The number of nodes, *i.e.*
-            :obj:`max_val + 1` of :attr:`edge_index`. (default: :obj:`None`)
-    """
-
-    if normalization is not None:
-        assert normalization in ['sym', 'rw']  # 'Invalid normalization'
-
-    edge_index, edge_weight = remove_self_loops(edge_index, edge_weight)
-
-    if edge_weight is None:
-        edge_weight = torch.ones(edge_index.size(1), dtype=dtype,
-                                 device=edge_index.device)
-
-    num_nodes = maybe_num_nodes(edge_index, num_nodes)
-
-    row, col = edge_index[0], edge_index[1]
-    deg = scatter_add(edge_weight, row, dim=0, dim_size=num_nodes)
-
-    if normalization is None:
-        # L = D - A.
-        edge_index, _ = add_self_loops(edge_index, num_nodes=num_nodes)
-        edge_weight = torch.cat([-edge_weight, deg], dim=0)
-    elif normalization == 'sym':
-        # Compute A_norm = -D^{-1/2} A D^{-1/2}.
-        deg_inv_sqrt = deg.pow_(-0.5)
-        deg_inv_sqrt.masked_fill_(deg_inv_sqrt == float('inf'), 0)
-        edge_weight = deg_inv_sqrt[row] * edge_weight * deg_inv_sqrt[col]
-
-        # L = I - A_norm.
-        edge_index, tmp = add_self_loops(edge_index, -edge_weight,
-                                         fill_value=1., num_nodes=num_nodes)
-        assert tmp is not None
-        edge_weight = tmp
+    if n_clust:
+        torch.save(model_dict, f'{os.path.join(parameters["output_directory"], parameters["dataset_name"], "models")}/mincut_model_{n_clust}_{parameters["dataset_name"]}_epoch_{epoch_num}_activation_function_{parameters["activation_function"]}_learning_rate_{parameters["learning_rate"]}_n_channels_{parameters["n_channels"]}_optimizer_{parameters["optimizer"]}_type_laplacian_{parameters["type_laplacian"]}_weight_decay_{parameters["weight_decay"]}.model')
     else:
-        # Compute A_norm = -D^{-1} A.
-        deg_inv = 1.0 / deg
-        deg_inv.masked_fill_(deg_inv == float('inf'), 0)
-        edge_weight = deg_inv[row] * edge_weight
+        torch.save(model_dict, f'{os.path.join(parameters["output_directory"], parameters["dataset_name"], "models")}/mincut_model_{parameters["dataset_name"]}_epoch_{epoch_num}_activation_function_{parameters["activation_function"]}_learning_rate_{parameters["learning_rate"]}_n_channels_{parameters["n_channels"]}_optimizer_{parameters["optimizer"]}_type_laplacian_{parameters["type_laplacian"]}_weight_decay_{parameters["weight_decay"]}.model')
 
-        # L = I - A_norm.
-        edge_index, tmp = add_self_loops(edge_index, -edge_weight,
-                                         fill_value=1., num_nodes=num_nodes)
-        assert tmp is not None
-        edge_weight = tmp
+def load_model(parameters, epoch_num, n_clust=None):
+    '''
+    Function loads trained model for a specific n_clust and epoch_num.
 
-    return edge_index, edge_weight
-'''
+    :param n_clust: number of clusters for MinCutTAD prediction
+    :param epoch_num: epoch number
+    :param parameters: dictionary with parameters set in parameters.json file
+    :return model: PyTorch model with trained weights
+    '''
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    if n_clust:
+        n_clust = int(n_clust)
+        model_for_test = MinCutTAD(parameters, n_clust).to(device)
+        model_for_test.load_state_dict(torch.load(f'{os.path.join(parameters["output_directory"], parameters["dataset_name"], "models")}/mincut_model_{n_clust}_{parameters["dataset_name"]}_epoch_{epoch_num}_activation_function_{parameters["activation_function"]}_learning_rate_{parameters["learning_rate"]}_n_channels_{parameters["n_channels"]}_optimizer_{parameters["optimizer"]}_type_laplacian_{parameters["type_laplacian"]}_weight_decay_{parameters["weight_decay"]}.model'))
+    else:
+        model_for_test = MinCutTAD(parameters).to(device)
+        model_for_test.load_state_dict(torch.load(f'{os.path.join(parameters["output_directory"], parameters["dataset_name"], "models")}/mincut_model_{parameters["dataset_name"]}_epoch_{epoch_num[0]}_activation_function_{parameters["activation_function"]}_learning_rate_{parameters["learning_rate"]}_n_channels_{parameters["n_channels"]}_optimizer_{parameters["optimizer"]}_type_laplacian_{parameters["type_laplacian"]}_weight_decay_{parameters["weight_decay"]}.model'))
+
+    model_for_test.eval()
+
+    return model_for_test
+
+def calculate_laplacian(edge_index):
+    '''
+    Function calculates laplacian of adjacency matrix, which is represented by the edge_index and edge_attr. In the "weighted laplacian" the edge_attr is taken into account.
+
+    :param edge_index: edge index representation of adjacency_matrix, reports the nodes and the edges between the nodes present in a graph
+    :return edge_index: laplacian-modified version of edge index representation of adjacency_matrix, reports the nodes and the edges between the nodes present in a graph
+    '''
+
+    edge_index = get_laplacian(edge_index = edge_index, normalization = "sym")
+
+    return edge_index
 
 def normalized_adjacency(edge_index):
     '''
+    Function calculates a normalized version of the adjacency matrix, which is represented by the edge_index.
 
-    :param edge_index:
-    :return:
+    :param edge_index: edge index representation of adjacency_matrix, reports the nodes and the edges between the nodes present in a graph
+    :return edge_index: normalized version of edge index representation of adjacency_matrix, reports the nodes and the edges between the nodes present in a graph
     '''
     #INSPIRATION: https://github.com/danielegrattarola/spektral/blob/e99d5955a80eeae3c4605d8479f53aaa0ef5dbf2/spektral/utils/convolution.py#L25
     degrees = np.power(np.array(edge_index.sum(1)), -0.5).ravel()
@@ -390,42 +270,82 @@ def normalized_adjacency(edge_index):
     D = np.diag(degrees)
     return D.dot(edge_index).dot(D)
 
-'''
-#ORIGINAL - SPECTRAL
-def normalized_adjacency(A, symmetric=True):
-    r"""
-    Normalizes the given adjacency matrix using the degree matrix as either
-    \(\D^{-1}\A\) or \(\D^{-1/2}\A\D^{-1/2}\) (symmetric normalization).
-    :param A: rank 2 array or sparse matrix;
-    :param symmetric: boolean, compute symmetric normalization;
-    :return: the normalized adjacency matrix.
-    """
-    if symmetric:
-        normalized_D = degree_power(A, -0.5)
-        return normalized_D.dot(A).dot(normalized_D)
-    else:
-        normalized_D = degree_power(A, -1.0)
-        return normalized_D.dot(A)
-'''
-
-def save_tad_list(parameters, tad_list, tool):
+def save_tad_list(parameters, tad_list_source_information_dict, dataloader, tool, extension = None):
     '''
 
     :param parameters: dictionary with parameters set in parameters.json file
-    :param tad_list:
+    :param tad_list_source_information_dict:
     :param tool:
     :return:
     '''
 
-    np.save(os.path.join(parameters["output_directory"], "training", tool + ".npy"), tad_list)
+    cell_line = list(dataloader)[0].source_information[0].split("-")[0]
+    tool = tool + "_" + list(dataloader)[0].source_information[0].split("-")[0]
 
-def calculation_graph_matrix_representation(parameters, edge_index, edge_attr):
+    source_informations = []
+    for data in list(dataloader):
+        source_informations.append(data.source_information[0].split("-")[1])
+    source_informations = np.array(source_informations)
+
+    tad_list = []
+    for tads in tad_list_source_information_dict[cell_line].keys():
+        tad_list.append(tad_list_source_information_dict[cell_line][tads])
+    tad_list = np.array(tad_list)
+
+    if extension:
+        np.save(os.path.join(parameters["output_directory"], parameters["dataset_name"], "predicted_tads_" + extension + "_" + tool + ".npy"), tad_list)
+        np.save(os.path.join(parameters["output_directory"], parameters["dataset_name"], "predicted_tads_source_information_" + extension + "_" + tool + ".npy"), source_informations)
+    else:
+        np.save(os.path.join(parameters["output_directory"], parameters["dataset_name"], "predicted_tads_" + tool + ".npy"), tad_list)
+        np.save(os.path.join(parameters["output_directory"], parameters["dataset_name"], "predicted_tads_source_information_" + tool + ".npy"), source_informations)
+
+    with open(os.path.join(parameters["output_directory"], parameters["dataset_name"], "predicted_tads_" + tool + ".pickle"), 'wb') as handle:
+        pickle.dump(tad_list_source_information_dict, handle, protocol=pickle.DEFAULT_PROTOCOL)
+
+def calculation_graph_matrix_representation(parameters, edge_index):
+    '''
+    Function is a wrapper for the calculation of laplacian or normalized version of of adjacency matrix.
+    '''
 
     if parameters["graph_matrix_representation"] == "laplacian":
-        edge_index, edge_weight = calculate_laplacian(parameters["type_laplacian"], edge_index, edge_attr)
-        return edge_index, edge_weight
+        edge_index = calculate_laplacian(edge_index)
+        return edge_index
     elif parameters["graph_matrix_representation"] == "normalized":
         edge_index = normalized_adjacency(edge_index)
         return edge_index, None
     else:
         raise ValueError("A graph matrix representation has been chosen, which is not implemented.")
+
+def determine_tad_regions(predicted_tads_dict):
+    '''
+    Function determines TAD regions out of a dict of classified TAD bins.
+
+    :param predicted_tads_dict: dict with TAD bins for each chromosome
+    :return predicted_tads_dict: dict with TAD regions for each chromosome
+    '''
+
+    for cell_line in predicted_tads_dict.keys():
+        for chromosome in predicted_tads_dict[cell_line].keys():
+            tad_regions = predicted_tads_dict[cell_line][chromosome]
+
+            array_length = len(tad_regions)
+            length = 1
+            predicted_tads = []
+
+            if (array_length == 0):
+                return predicted_tads
+
+            for i in range(1, array_length + 1):
+                if (i == array_length or tad_regions[i] - tad_regions[i - 1] != 1):
+                    if (length == 1):
+                        predicted_tads.append([(tad_regions[i - length])])
+                    else:
+                        temp = np.arange((tad_regions[i - length]), (tad_regions[i - 1]) + 1)
+                        predicted_tads.append(temp.tolist())
+                    length = 1
+                else:
+                    length += 1
+
+            predicted_tads_dict[cell_line][chromosome] = predicted_tads
+
+    return predicted_tads_dict

@@ -1,0 +1,6 @@
+2021-12-06 18:07:10,284 - INFO - utils_general - Start evaluation with the following parameters:
+2021-12-06 18:07:10,284 - INFO - utils_general - output_directory: /Users/Charlotte/VSC/MeetEU/tad_detection/evaluation/tools_benchmarking/TopDomTests/runtests
+2021-12-06 18:07:10,285 - INFO - utils_general - paths_predicted_tads_per_tad_prediction_methods: ['/Users/Charlotte/VSC/MeetEU/Arrowhead.npy', '/Users/Charlotte/VSC/MeetEU/TopDom.npy', '/Users/Charlotte/VSC/MeetEU/SpectralTAD.npy', '/Users/Charlotte/VSC/MeetEU/Spectral.npy', '/Users/Charlotte/VSC/MeetEU/Ashoor.npy', '/Users/Charlotte/VSC/MeetEU/MinCutTAD.npy']
+2021-12-06 18:07:10,285 - INFO - utils_general - node_feature_encoding: ['CTCF', 'RAD21', 'SMC3', 'Number_HousekeepingGenes']
+2021-12-06 18:07:10,285 - INFO - utils_general - tad_prediction_methods: ['Arrowhead', 'TopDom', 'SpectralTAD', 'Spectral', 'Ashoor', 'MinCutTAD']
+2021-12-06 18:07:10,285 - DEBUG - evaluate - Start evaluation logger.

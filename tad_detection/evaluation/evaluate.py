@@ -6,10 +6,12 @@ sys.path.insert(1, './tad_detection/evaluation/')
 
 import argparse
 import os
-from tad_detection.utils_general import load_parameters, set_up_logger
-from tad_detection.evaluation.utils_evaluate import load_predicted_tad_dict_per_methods, \
+from utils_general import load_parameters, set_up_logger
+from evaluation.utils_evaluate import load_predicted_tad_dict_per_methods, \
     generate_chromosome_lists, pred_tads_to_dict, tad_region_size_calculation, venn_diagram_visualization, \
-    jaccard_index_from_tad_dict, flatten_tad_dict
+    jaccard_index_from_tad_dict, flatten_tad_dict, create_adj_matrix
+from gcMapExplorer import lib as gmlib
+from tad_detection.preprocessing.visualization import hic_map_generation
 
 
 if __name__ == "__main__":
@@ -51,3 +53,26 @@ if __name__ == "__main__":
     jaccard_index_from_tad_dict(parameters, parameters["tad_prediction_methods"], flat_tad_dict)
 
     tad_region_size_calculation(parameters, tad_dict)
+
+    cell_line = parameters["cell_line"]
+    for method in parameters["tad_prediction_methods"]:
+        for chromosome in parameters["chromosomes_str_short"]:
+            ccmap_path = "../../cmap_files/" + str(
+                int(parameters["scaling_factor"]/1000)) + "kb/" + cell_line + "/intra/cmap_" + chromosome + ".ccmap"
+
+            if parameters["scaling_factor"] == 100000:
+                ccmap = gmlib.ccmap.load_ccmap(ccmap_path)
+                ccmap.make_readable()
+                chr_len = len(ccmap.matrix)
+                chr_len = chr_len[0]
+                chr_len = 3000
+            else:
+                ccmap = gmlib.ccmap.load_ccmap(ccmap_path)
+                ccmap.make_readable()
+                chr_len = ccmap.shape()
+                chr_len = chr_len[0]
+            print(chromosome)
+            adj = create_adj_matrix(chr_len, tad_dict[method][chromosome])
+
+            adjacency_matrices_source_information_list = [cell_line + "_" + method + "_" + str(int(parameters["scaling_factor"]/1000)) + "kb_chromosome_" + chromosome]
+            hic_map_generation(parameters, [[adj]], [adjacency_matrices_source_information_list])

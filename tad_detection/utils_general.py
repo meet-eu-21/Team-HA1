@@ -15,6 +15,16 @@ def load_parameters(path_parameters_json):
 
     return parameters
 
+def dump_parameters(parameters):
+    '''
+    Function dumps the parameters from the provided parameters.json file in the dataset dictionary.
+
+    :param parameters: dictionary with parameters set in parameters.json file.
+    '''
+
+    with open(os.path.join(parameters["output_directory"], parameters["dataset_name"], 'parameters.json'), 'w') as f:
+        json.dump(parameters, f)
+
 def set_up_logger(name, parameters):
     '''
     Function sets a global logger for documentation of information and errors in the execution of the chosen script.
@@ -28,7 +38,7 @@ def set_up_logger(name, parameters):
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
 
-    fh = logging.FileHandler(os.path.join(parameters["output_directory"], name, name + '.log'))
+    fh = logging.FileHandler(os.path.join(parameters["output_directory"], parameters["dataset_name"], name + '.log'))
     fh.setFormatter(formatter)
 
     logger = logging.getLogger(name)
@@ -41,14 +51,3 @@ def set_up_logger(name, parameters):
         logger.info(parameter + ": " + str(parameters[parameter]))
 
     return logger
-
-
-def _old_set_up_logger(parameters):
-    '''
-    Function sets a global logger for documentation of information and errors in the execution of the chosen script.
-
-    :param parameters: dictionary with parameters set in parameters.json file
-    '''
-
-    logger = logging.getLogger('evaluation')
-    logger.setLevel(logging.DEBUG)

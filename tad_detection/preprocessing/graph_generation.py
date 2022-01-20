@@ -18,6 +18,13 @@ import matplotlib.pyplot as plt
 from gcMapExplorer import lib as gmlib
 
 def load_adjacency_matrix(parameters):
+    '''
+    Function genertates adjacency_matrices_list by loading each adjacency matrix separately from raw data.
+
+    :param parameters: dictionary with parameters set in parameters.json file
+    :return adjacency_matrices_list: adjacency matrices separated for chromosomes and cell line
+    :return adjacency_matrices_source_information_list: source information for adjacency_matrices_list indicating the chromosome of the corresponding adjacency matrix
+    '''
 
     path_list_dict = {}
     adjacency_matrices_list = []
@@ -66,15 +73,15 @@ def load_adjacency_matrix(parameters):
 
     logger.info("Wrote a dictionary with the paths of all used Hi-C matrices to: " + os.path.join(parameters["output_directory"], "preprocessing", 'dictionary_paths_of_used_hic_matrices_' + parameters["resolution_hic_matrix_string"] + '.pickle'))
 
-    #TODO
-    #GIBT ES DIESES DICTIONARY WIRKLICH? HABE ICH NOCH NRIGENDWO GESEHEN
-
-    #TODO - Paul
-    #ICH kann nicht erkennen, inwiefern die ccmap files hier auch gespeichert werden???
-
     return adjacency_matrices_list, adjacency_matrices_source_information_list
 
 def load_ccmap_file(parameters):
+    '''
+
+    :param parameters: dictionary with parameters set in parameters.json file
+    :return adjacency_matrices_list: adjacency matrices separated for chromosomes and cell line
+    :return adjacency_matrices_source_information_list: source information for adjacency_matrices_list indicating the chromosome of the corresponding adjacency matrix
+    '''
 
     adjacency_matrices_list = []
     adjacency_matrices_source_information_list = []
@@ -83,8 +90,9 @@ def load_ccmap_file(parameters):
         adjacency_matrices_list_cell_line = []
         adjacency_matrices_source_information_list_cell_line = []
         for chromosome in parameters["chromosomes_str_short"]:
+            logger.info(f"Importing chromosome {chromosome}")
             adjacency_matrices_source_information_list_cell_line.append(cell_line + "-" + chromosome)
-            adjacency_matrix_chromosome = gmlib.ccmap.load_ccmap(f"./cmap_files/{cell_line}/intra/cmap_" + chromosome + ".ccmap")
+            adjacency_matrix_chromosome = gmlib.ccmap.load_ccmap(f'./cmap_files/{parameters["resolution_hic_matrix_string"]}/{cell_line}/intra/cmap_{chromosome}.ccmap')
             adjacency_matrix_chromosome.make_readable()
             adjacency_matrices_list_cell_line.append(np.array(adjacency_matrix_chromosome.matrix))
 
@@ -94,6 +102,13 @@ def load_ccmap_file(parameters):
     return adjacency_matrices_list, adjacency_matrices_source_information_list
 
 def statistics_adjacency_matrix(parameters, adjacency_matrices_list, adjacency_matrices_source_information_list):
+    '''
+    Function generates statistics for each adjacency matrix in adjacency_matrices_list including the diagonal sum and the distribution of interaction values. Also, it generates a histogram with the distribution of interaction values for each adjacency matrix.
+
+    :param parameters: dictionary with parameters set in parameters.json file
+    :param adjacency_matrices_list: adjacency matrices separated for chromosomes and cell line
+    :param adjacency_matrices_source_information_list: source information for adjacency_matrices_list indicating the chromosome of the corresponding adjacency matrix
+    '''
 
     for adjacency_matrix_cell_line, source_information_cell_line in zip(adjacency_matrices_list, adjacency_matrices_source_information_list):
 
@@ -122,7 +137,6 @@ def statistics_adjacency_matrix(parameters, adjacency_matrices_list, adjacency_m
             logger.info("0.9 quantile interaction value: " + str(np.quantile(adjacency_matrix_flatten, 0.9)))
             logger.info("Maximum interaction value: " + str(np.quantile(adjacency_matrix_flatten, 1.0)))
 
-
             plt.hist(adjacency_matrix_flatten, bins=10000)
 
             plt.title("Distribution interaction values in Hi-C matrix")
@@ -131,39 +145,74 @@ def statistics_adjacency_matrix(parameters, adjacency_matrices_list, adjacency_m
 
             plt.gcf().set_size_inches(18.5, 18.5)
             #plt.show()
-            plt.savefig(os.path.join(parameters["output_directory"], "preprocessing", "histogram_interaction_values_in_adjacency_matrix_ " + source_information + ".png"))
+            plt.savefig(os.path.join(parameters["output_directory"], parameters["dataset_name"], "preprocessing", "histogram_interaction_values_in_adjacency_matrix_ " + source_information + ".png"))
+            plt.close()
 
-def graph_filtering(parameters, adjacency_matrices_list):
+def graph_filtering(parameters, adjacency_matrices_list, adjacency_matrices_source_information_list):
+    '''
+    Function filters vertices and edges by thresholds in parameters for each adjacency matrix in adjacency_matrices_list.
 
-    #TODO
-    #Add logger statistics here.
+    :param parameters: dictionary with parameters set in parameters.json file
+    :param adjacency_matrices_list: adjacency matrices separated for chromosomes and cell line
+    :param adjacency_matrices_source_information_list: source information for adjacency_matrices_list indicating the chromosome of the corresponding adjacency matrix
+    :return adjacency_matrices_list_filtered: filtered adjacency matrices separated for chromosomes and cell line
+    '''
+
     adjacency_matrices_list_filtered = adjacency_matrices_list
 
     if parameters["threshold_graph_vertex_filtering"] != "None":
         adjacency_matrices_list_filtered = []
         adjacency_matrices_cell_line_filtered = []
-        for adjacency_matrices_cell_line in adjacency_matrices_list:
-            for adjacency_matrix in adjacency_matrices_cell_line:
-                ###
+        for adjacency_matrices_cell_line, adjacency_matrices_source_information_list_cell_line in zip(adjacency_matrices_list, adjacency_matrices_source_information_list):
+            logger.info(f"Genomic bins graph filtering of chromosomes of cell line {adjacency_matrices_source_information_list_cell_line[0].split('-')[0]}")
+            for adjacency_matrix, adjacency_matrices_source_information in zip(adjacency_matrices_cell_line, adjacency_matrices_source_information_list_cell_line):
+                logger.info(f"Graph filtering of chromosome {adjacency_matrices_source_information.split('-')[1]} with {len(adjacency_matrix)} genomic bins before filtering.")
                 genomic_bins = adjacency_matrix.shape[0]
                 genomic_bins_delete = set()
                 for genomic_bin in range(0, genomic_bins-1):
-                    if len(adjacency_matrix[adjacency_matrix[genomic_bin] < parameters["threshold_graph_vertex_filtering"]]) < parameters["graph_vertex_filtering_min_val"]:
+                    if len(adjacency_matrix[adjacency_matrix[genomic_bin] < parameters["threshold_graph_vertex_filtering"]]) > parameters["graph_vertex_filtering_min_val"]:
                         genomic_bins_delete.add(genomic_bin)
                 adjacency_matrix = adjacency_matrix[list(set(range(0, genomic_bins-1)) - set(genomic_bins_delete)), :]
                 adjacency_matrix = adjacency_matrix[:, list(set(range(0, genomic_bins-1)) - set(genomic_bins_delete))]
                 adjacency_matrices_cell_line_filtered.append(adjacency_matrix)
+                logger.info(f"Graph filtering of chromosome {adjacency_matrices_source_information.split('-')[1]} with {len(adjacency_matrix)} genomic bins after filtering.")
             adjacency_matrices_list_filtered.append(adjacency_matrices_cell_line_filtered)
     if parameters["threshold_graph_edge_filtering"] != "None":
         adjacency_matrices_list_filtered = []
         adjacency_matrices_cell_line_filtered = []
-        for adjacency_matrices_cell_line in adjacency_matrices_list:
-            for adjacency_matrix in adjacency_matrices_cell_line:
-                for i, j in zip(range(0, adjacency_matrix.shape[0]-1), range(0, adjacency_matrix.shape[1]-1)):
-                    if adjacency_matrix[i,j] < parameters["threshold_graph_edge_filtering"]:
-                        adjacency_matrix[i,j] = 0
+        for adjacency_matrices_cell_line, adjacency_matrices_source_information_list_cell_line in zip(adjacency_matrices_list, adjacency_matrices_source_information_list):
+            logger.info(f"Vertices graph filtering of chromosomes of cell line {adjacency_matrices_source_information_list_cell_line[0].split('-')[0]}")
+            for adjacency_matrix, adjacency_matrices_source_information in zip(adjacency_matrices_cell_line, adjacency_matrices_source_information_list_cell_line):
+                count_vertices_before_filtering = (adjacency_matrix > 0).sum()
+                logger.info(f"Graph filtering of chromosome {adjacency_matrices_source_information.split('-')[1]} with {count_vertices_before_filtering} vertices > 0 (Total amount of vertices including 0: {len(adjacency_matrix)*len(adjacency_matrix)}.) before filtering.")
+                adjacency_matrix[adjacency_matrix < parameters["threshold_graph_edge_filtering"]] = 0
+                count_vertices_after_filtering = (adjacency_matrix > 0).sum()
+                logger.info(f"Graph filtering of chromosome {adjacency_matrices_source_information.split('-')[1]} with {count_vertices_after_filtering} vertices > 0 (Filtered {count_vertices_before_filtering-count_vertices_after_filtering} vertices in total.) after filtering.")
 
                 adjacency_matrices_cell_line_filtered.append(adjacency_matrix)
             adjacency_matrices_list_filtered.append(adjacency_matrices_cell_line_filtered)
 
     return adjacency_matrices_list_filtered
+
+
+def restrict_arrowhead_solution_list(arrowhead_solution_list, edge_index_list):
+    '''
+    '''
+
+    for cell_line_index, (arrowhead_solution_list_cell_line, edge_index_list_cell_line) in enumerate(
+            zip(arrowhead_solution_list, edge_index_list)):
+        for chromosome_index, (arrowhead_solution_list_chromosome, edge_index_list_chromsome) in enumerate(
+                zip(arrowhead_solution_list_cell_line, edge_index_list_cell_line)):
+            arrowhead_solution_list[cell_line_index][chromosome_index] = arrowhead_solution_list_chromosome[:max(set(edge_index_list_chromsome[0]) | set(edge_index_list_chromsome[1]))+1] #min(set(edge_index_list_chromsome[0]) | set(edge_index_list_chromsome[1]))
+
+    return arrowhead_solution_list
+
+def restrict_node_features_list(node_feature_list, edge_index_list):
+
+    for cell_line_index, (node_feature_list_cell_line, edge_index_list_cell_line) in enumerate(
+            zip(node_feature_list, edge_index_list)):
+        for chromosome_index, (node_feature_list_chromosome, edge_index_list_chromsome) in enumerate(
+                zip(node_feature_list_cell_line, edge_index_list_cell_line)):
+            node_feature_list[cell_line_index][chromosome_index] = node_feature_list_chromosome[:max(set(edge_index_list_chromsome[0]) | set(edge_index_list_chromsome[1]))+1] #min(set(edge_index_list_chromsome[0]) | set(edge_index_list_chromsome[1]))
+
+    return node_feature_list
