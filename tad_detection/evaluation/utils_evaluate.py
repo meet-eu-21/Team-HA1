@@ -14,11 +14,120 @@ import matplotlib.pyplot as plt
 from venn import venn
 from matplotlib_venn import venn2, venn2_circles
 from matplotlib_venn import venn3, venn3_circles
-import json
-import logging
-from itertools import combinations, combinations_with_replacement
+import itertools
 import pickle
-from gcMapExplorer import lib as gmlib
+from tad_detection.preprocessing.visualization import hic_map_generation
+import re
+
+
+def hic_map_generation_evaluation(parameters, tad_dict):
+    """
+    creates adjacency matrix and hic map from given tad dict
+    specifically for the method MinCutTAD unsupervised, tad regions are sorted and a dict containing these tad regions is saved
+    :param parameters: from parameters.json: "cell_line", "scaling_factor", "tad_prediction_methods", "output_directory"
+    :param tad_dict: dict containing the list of tad regions for chromosomes of specified methods
+    :return:
+    """
+    cell_line = parameters["cell_line"]
+    chr_len_dict_path = "../../ressources/" + str(
+        int(parameters["scaling_factor"] / 1000)) + "kb_chr_len_dict.pickle"
+    with open(chr_len_dict_path, 'rb') as handle:
+        chr_len_dict = pickle.load(handle)
+    for method in parameters["tad_prediction_methods"]:
+        if method == "MinCutTAD unsupervised":
+            sorted_tad_dict = {}
+            sorted_tad_dict[method] = dict.fromkeys(parameters["chromosomes_str_short"])
+
+        for chromosome in parameters["chromosomes_str_short"]:
+            if (chromosome in list(tad_dict[method].keys())):
+                print(chromosome)
+                chr_len = chr_len_dict[cell_line][chromosome]
+
+                if method == "MinCutTAD unsupervised":
+                    small_tad_chr = [x for x in tad_dict[method][chromosome] if len(x) <= 200]
+                    # small_tad_chr = tad_dict[method][chromosome]
+                    sorted_tads = correct_tad_regions_unsupervised(small_tad_chr)
+
+                    sorted_tad_dict[method][chromosome] = sorted_tads
+                    adj = create_adj_matrix(chr_len, sorted_tads)
+
+                else:
+                    adj = create_adj_matrix(chr_len, tad_dict[method][chromosome])
+
+                adjacency_matrices_source_information_list = [cell_line + "_" + method + "_" + str(
+                    int(parameters["scaling_factor"] / 1000)) + "kb_chromosome_" + chromosome]
+                hic_map_generation(parameters, [[adj]], [adjacency_matrices_source_information_list])
+
+        if method == "MinCutTAD unsupervised":
+            output_path = os.path.join(parameters["output_directory"],
+                                       "unsupervised_MinCutTAD_corrected_100kb_" + parameters["cell_line"] + ".pickle")
+            with open(output_path, 'wb') as handle:
+                pickle.dump(sorted_tad_dict, handle, protocol=pickle.DEFAULT_PROTOCOL)
+
+    return
+
+
+def correct_tad_regions_unsupervised(tad_dict_chr):
+    """
+    for the MinCutTAD unsupervised method, the tad regions predicted are resorted. Neighboring bins are grouped together.
+    :param tad_dict_chr: the list of tad regions for one chromosome
+    :return: sorted_chr: the sorted/reordered list of tad regions for one chromosome
+    """
+    flat_chr = [item for sublist in tad_dict_chr for item in sublist]
+    flat_chr.sort()
+    sorted_chr = []
+    tad_region = []
+    for count, element in enumerate(flat_chr):
+        if abs(element - flat_chr[count - 1]) == 1:
+            tad_region.append(element)
+        elif abs(element - flat_chr[count - 1]) > 1:
+            sorted_chr.append(tad_region)
+            tad_region = []
+            tad_region.append(element)
+        if element == flat_chr[-1]:  # last tad needs to be added
+            sorted_chr.append(tad_region)
+
+    return sorted_chr
+
+
+def txt_to_tad_dict(file_names, inputfolder, outputfolder, chrnum_list, methodname, celltype, resolution, threshold=0.5):
+    """
+    turns the results of our partner tad team into a tad dict. Any bin lower than the threshold is considered a tad region.
+    :param file_names: list of filenames to txt files --> each for 1 chromosome
+    :param inputfolder: input folder containing file_names
+    :param outputfolder: output folder where tad_dict is saved
+    :param chrnum_list: list of strings describing which chromosomes are in the file_names list, must be in the same order as the file_names
+    :param methodname: string of name of the method
+    :param celltype: string of celltype
+    :param resolution: string of resolution such as 25kb or 100kb
+    :param threshold: threshold to be set, generally 0.5
+    :return: tad_dict: contains tad_regions from the chromosomes in the results txt file
+    """
+    tad_dict = {}
+    tad_dict[methodname] = dict.fromkeys(chrnum_list)
+
+    for countpath, file_name in enumerate(file_names):
+        path = os.path.join(inputfolder, file_name)
+        chr_file = pd.read_csv(path, delimiter="\t", header=None)
+        binary_classification = chr_file[1] > threshold  # greater than threshold are tad boundaries
+        chr_file[2] = binary_classification
+        tad_region = []
+        list_of_tad_regions = []
+        for count, bin in enumerate(chr_file[0]):
+            if (chr_file[2].iloc[count] == False): # not a tad boundary, so a tad region
+                tad_region.append(bin)
+            elif (chr_file[2].iloc[count] == True):  # a tad boundary
+                list_of_tad_regions.append(tad_region)
+                tad_region = []
+        list_of_tad_regions = [e for e in list_of_tad_regions if e]
+        # print(list_of_tad_regions)
+        tad_dict[methodname][chrnum_list[countpath]] = list_of_tad_regions
+    output_path = os.path.join(outputfolder, methodname + "_" + celltype + "_" + resolution + ".pickle")
+    print(output_path)
+    with open(output_path, 'wb') as handle:
+        pickle.dump(tad_dict, handle, protocol=pickle.DEFAULT_PROTOCOL)
+
+    return tad_dict
 
 
 def generate_chromosome_lists(parameters):
@@ -48,6 +157,7 @@ def generate_chromosome_lists(parameters):
 
     return chromsomes_int, chromosomes_str_long, chromosomes_str_short
 
+
 def load_predicted_tad_dict_per_methods(parameters):
     """
     Loads the dicts containing the tad prediction information for each method, and combines them into one final dict
@@ -57,9 +167,14 @@ def load_predicted_tad_dict_per_methods(parameters):
     paths = parameters["paths_predicted_tads_per_tad_prediction_methods"]
 
     tad_dict = {}
-    for path in paths:
+    for count, path in enumerate(paths):
         with open(path, 'rb') as handle:
             method_dict = pickle.load(handle)
+        if not (list(method_dict.keys())[0] in parameters["tad_prediction_methods"]):
+            wrong_key = list(method_dict.keys())[0]
+            method_dict[parameters["tad_prediction_methods"][count]] = method_dict[wrong_key]
+            del method_dict[wrong_key]
+
         tad_dict.update(method_dict)
 
     return tad_dict
@@ -75,12 +190,18 @@ def flatten_tad_dict(tad_dict):
     for method in tad_dict:
         flat_tad_dict[method] = dict.fromkeys(tad_dict[method].keys())
         for chromosome in tad_dict[method]:
-            if len(tad_dict[method][chromosome]) > 1:
-                flat_tad_dict[method][chromosome] = [item for sublist in tad_dict[method][chromosome] for item in sublist]
-            elif len(tad_dict[method][chromosome]) == 1:
-                flat_tad_dict[method][chromosome] = [item for sublist in tad_dict[method][chromosome][0] for item in sublist]
-            else:
-                continue
+            try:
+                if len(tad_dict[method][chromosome]) > 1:
+                     flattened_list = [item for sublist in tad_dict[method][chromosome] for item in sublist]
+                     flattened_list.sort()
+                     flat_tad_dict[method][chromosome] = flattened_list
+                elif len(tad_dict[method][chromosome]) == 1:
+                    flat_tad_dict[method][chromosome] = [item for sublist in tad_dict[method][chromosome][0] for item in sublist]
+                else:
+                    continue
+            except TypeError:
+                flat_tad_dict[method][chromosome] = list(tad_dict[method][chromosome])
+
     return flat_tad_dict
 
 
@@ -94,7 +215,7 @@ def jaccard_index_from_tad_dict(parameters, tad_prediction_methods, flat_tad_dic
 
     jaccard_index_tad_prediction_methods_combinations = {}
 
-    for tad_prediction_methods_combination in list(combinations(tad_prediction_methods, 2)):
+    for tad_prediction_methods_combination in list(itertools.combinations(tad_prediction_methods, 2)):
         jaccard_index_chrom_list = []
         for chromosome in parameters["chromosomes_str_short"]:
             if (chromosome in flat_tad_dict[tad_prediction_methods_combination[0]]) & (chromosome in flat_tad_dict[tad_prediction_methods_combination[1]]):
@@ -109,6 +230,11 @@ def jaccard_index_from_tad_dict(parameters, tad_prediction_methods, flat_tad_dic
 
     # print(jaccard_index)
     print(jaccard_index_tad_prediction_methods_combinations)
+
+    output_path = os.path.join(parameters["output_directory"], "evaluation/", "tad_dict/", str(int(parameters["scaling_factor"]/1000)) + "kb",
+                                   "Jaccard_Index"+ "_".join(tad_prediction_methods) + ".pickle")
+    with open(output_path, 'wb') as handle:
+        pickle.dump(jaccard_index_tad_prediction_methods_combinations, handle, protocol=pickle.DEFAULT_PROTOCOL)
 
     return jaccard_index_tad_prediction_methods_combinations
 
@@ -158,7 +284,7 @@ def venn_diagram_visualization(parameters, tad_prediction_methods, predicted_tad
     else:
         raise ValueError("Only the predicted TADs for one method has been provided. No Venn diagram can be created.")
 
-    plt.savefig(os.path.join(parameters["output_directory"], "evaluation", "venn_diagrams",
+    plt.savefig(os.path.join(parameters["output_directory"], "evaluation", "venn_diagrams", str(int(parameters["scaling_factor"]/1000)) + "kb",
                              "Venn_diagram_of_" + "_" + chrnum + "_" + "_".join(tad_prediction_methods) + ".png"))
     plt.close()
 
@@ -244,26 +370,42 @@ def tad_region_size_calculation(parameters, predicted_tads_per_tad_prediction_me
 
         tad_region_size_across_chromosome_visualisation(parameters, method, tad_regions_across_chromosome)
 
-        output_path = os.path.join(parameters["output_directory"], "evaluation/", "tad_regions/",
-                                   "TAD_region_size_statistics_with_" + method)
+        output_path = os.path.join(parameters["output_directory"], "evaluation/", "tad_regions/", str(int(parameters["scaling_factor"]/1000)) + "kb",
+                                   "TAD_region_size_statistics_with_" + method + ".pickle")
         print(output_path)
         with open(output_path, 'wb') as handle:
             pickle.dump(tad_region_chromosomes_dict, handle, protocol=pickle.DEFAULT_PROTOCOL)
 
 
 def tad_region_size_across_chromosome_visualisation(parameters, tad_prediction_method, tad_regions_across_chromosome):
+    """
+    visualizes the tad regions sizes across the different chromosomes
+    :param parameters: from parameters.json file
+    :param tad_prediction_method: string tad prediction method such as Arrowhead, for output path
+    :param tad_regions_across_chromosome: npy array containing lists of the tad regions across the chromosomes from the function
+    tad_region_size_calculation
+    :return:
+    """
     plt.hist(tad_regions_across_chromosome, 50)
     plt.title(
-        "TAD region size distribution across chromosomes for TAD prediction with " + tad_prediction_method)  ########################
+        "TAD region size distribution across chromosomes for TAD prediction with " + tad_prediction_method)
     plt.xlabel("TAD region size")
     plt.ylabel("Number of TAD regions with the size.")
     # plt.show()
     plt.savefig(os.path.join(parameters["output_directory"], "evaluation/", "tad_regions/",
-                             "TAD_region_size_distribution_" + tad_prediction_method))  ########################
+                             str(int(parameters["scaling_factor"]/1000)) + "kb",
+                             "TAD_region_size_distribution_" + tad_prediction_method + ".png"))
     plt.close()
 
 
 def create_adj_matrix(chr_len, tad_regions):
+    """
+    creates an adjacency matrix from list of lists of tads --> every bin within a tad region and combination within
+    the tad region is given the value 1
+    :param chr_len: number of bins in given chromosome
+    :param tad_regions: list of lists of tad bins
+    :return: adj: the adjacency matrix
+    """
     adj = np.zeros((chr_len, chr_len))
     for tad in tad_regions: # [1, 2, 3]
         for combination in itertools.combinations_with_replacement(tad, 2): #[(1,1), (1,2) ...]
@@ -272,7 +414,7 @@ def create_adj_matrix(chr_len, tad_regions):
     return adj
 
 
-def bed_to_dict_file(chr_str_short, bedfolder, chrorderlist, method, cell_line, scaling_factor, output_folder):
+def bed_to_dict_file(chr_str_short, bedfolder, method, cell_line, scaling_factor, output_folder):
     """
     turns a .bed file, like the one produced by topdom into a dict containing the tad information
     :param chr_str_short: list of chr nums in string form
@@ -293,6 +435,7 @@ def bed_to_dict_file(chr_str_short, bedfolder, chrorderlist, method, cell_line, 
             bedfiles.append(os.path.join(bedfolder, file))
 
     for count, path in enumerate(bedfiles):
+        print(path)
         df_tad_chr = pd.read_csv(path, delimiter="\t", header=None)
 
         df_tad_chr.iloc[:, 1] = df_tad_chr.iloc[:, 1].apply(lambda x: np.int(round(x / scaling_factor, 0)))
@@ -310,7 +453,9 @@ def bed_to_dict_file(chr_str_short, bedfolder, chrorderlist, method, cell_line, 
             # print(l)
             td_solution_list.append(l)
         td_solution_list.sort()
-        tad_dict[method][chrorderlist[count]] = td_solution_list
+        chr_num = re.findall(r"\d+|X", path[-6:])
+        chr_num = chr_num[0]
+        tad_dict[method][chr_num] = td_solution_list
 
     filepath = output_folder + method + "_" + cell_line + "_" + str(round(scaling_factor/1000)) + "kb_dict.p"
 
@@ -458,7 +603,7 @@ def jaccard_index(tad_prediction_methods, aligned_flat_tads_per_method, paired_i
 
     jaccard_index_tad_prediction_methods_combinations = {}
 
-    for tad_prediction_methods_combination in list(combinations(tad_prediction_methods, 2)):
+    for tad_prediction_methods_combination in list(itertools.combinations(tad_prediction_methods, 2)):
         arr = np.where(np.array(tad_prediction_methods) == tad_prediction_methods_combination[0])[0]
         arr = arr.astype(int)
         arr = arr[0]
@@ -479,5 +624,6 @@ def jaccard_index(tad_prediction_methods, aligned_flat_tads_per_method, paired_i
 
     # print(jaccard_index)
     print(jaccard_index_tad_prediction_methods_combinations)
+
 
     return jaccard_index_tad_prediction_methods_combinations

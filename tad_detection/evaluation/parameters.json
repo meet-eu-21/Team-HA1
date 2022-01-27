@@ -1,15 +1,13 @@
 {
   "chromosomes": "all",
-  "cell_lines": ["GM12878", "IMR-90"],
   "cell_line": "GM12878",
-  "output_directory": "/Users/Charlotte/test_output_gnn_meeteu/",
-  "paths_predicted_tads_per_tad_prediction_methods": ["/Users/Charlotte/MeetEU/tad_detection/evaluation/results/Arrowhead_GM12878_100kb_dict.p",
-    "/Users/Charlotte/MeetEU/tad_detection/evaluation/results/TopDom_GM12878_100kb_dict.p"],
-  "path_topdom_bed": "/Users/Charlotte/MeetEU/tad_detection/evaluation/tools_benchmarking/TopDomTests/bin/bintest.bed",
+  "dataset_name": "",
+  "output_directory": "./results/",
+  "paths_predicted_tads_per_tad_prediction_methods": ["./tad_detection/evaluation/results/Arrowhead_GM12878_100kb_dict.p",
+    "./tad_detection/evaluation/results/TopDom_GM12878_100kb_dict.p"],
+  "path_topdom_bed": "./tad_detection/evaluation/tools_benchmarking/TopDomTests/bin/bintest.bed",
   "node_feature_encoding": ["CTCF", "RAD21", "SMC3", "Number_HousekeepingGenes"],
   "tad_prediction_methods": ["Arrowhead","TopDom"],
-  "arrowhead_solution_GM12878": "/Users/Charlotte/TAD_Data/GSE63525_GM12878_primary+replicate_Arrowhead_domainlist.txt",
-  "scaling_factor": 100000,
-  "dataset_name": "",
+  "scaling_factor": 100000
 }
 

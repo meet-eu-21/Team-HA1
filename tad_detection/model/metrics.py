@@ -409,23 +409,27 @@ def plot_roc_curve(parameters, labels_datasets, y_scores_labels_all, labels_comp
     :param labels_comparison_datasets: names of datasets for comparison
     '''
 
-    plt.rcParams["figure.figsize"] = (5, 5)
+    #plt.rcParams["figure.figsize"] = (20, 20)
+    plt.figure(dpi=300)
     xlabel_text = ""
+    legend_text = []
     for index_scores_labels, (y_scores_labels, label_dataset) in enumerate(zip(y_scores_labels_all, labels_datasets)):
-        fpr, tpr, _ = metrics.roc_curve(np.array(label_dataset).astype("int"), np.array(y_scores_labels))
+        fpr, tpr, _ = metrics.roc_curve(np.array(label_dataset).astype("int"), -1*np.array(y_scores_labels))
         roc_auc = metrics.auc(fpr, tpr)
         ax = sns.lineplot(x=fpr, y=tpr)
         if labels_comparison_datasets:
-            xlabel_text += f'AUROC {labels_comparison_datasets[index_scores_labels]} {roc_auc:.2f}     '
+            legend_text.append(f'{labels_comparison_datasets[index_scores_labels]} (AUC: {roc_auc:.2f})')
         else:
             xlabel_text += f'AUROC {roc_auc:.2f}'
 
-    ax.set_xlabel(xlabel_text)
     ax.plot([0, 1], [0, 1], c='grey')
     if labels_comparison_datasets:
-        ax.legend(loc='lower right', labels=labels_comparison_datasets)
+        ax.legend(loc='lower right', labels=legend_text)
+    else:
+        ax.set_xlabel(xlabel_text)
 
     #plt.title(parameters["datasets"]["phenotypes_plot"])
+    ax.set_aspect('equal', adjustable='box')
     plt.tight_layout()
 
     if labels_comparison_datasets:
@@ -438,8 +442,8 @@ def plot_roc_curve(parameters, labels_datasets, y_scores_labels_all, labels_comp
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--path_parameters_json", help=" to JSON with parameters.", type=str, default='../tad_detection/model/parameters.json')
+    parser = argparse.ArgumentParser(description='Create ROC curve plots and silhouette score plots for multiple experiments together.')
+    parser.add_argument("--path_parameters_json", help="path to JSON with parameters.", type=str, default='../tad_detection/model/parameters.json')
     args = parser.parse_args()
     path_parameters_json = args.path_parameters_json
     # path_parameters_json = "./tad_detection/model/parameters.json"

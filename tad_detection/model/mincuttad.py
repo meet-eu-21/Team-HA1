@@ -102,7 +102,7 @@ class MinCutTAD(nn.Module):
     '''
 
     def __init__(self, parameters_user, n_clust=None):
-        super(MinCutTAD).__init__()
+        super(MinCutTAD, self).__init__()
 
         self.max_num_nodes = parameters_user["max_num_nodes"]
         self.encoding_edge = parameters_user["encoding_edge"]

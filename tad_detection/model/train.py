@@ -350,7 +350,7 @@ def final_validation(parameters, model, dataloader_test, device, logger, run):
                 predicted_tads[cell_line][source_information[0].split("-")[1]] = np.where(labels == 0)[0]
             elif parameters["task_type"] == "unsupervised":
                 tad_group_chromosome = []
-                for tad_group in list(Counter(labels).keys())[1:]:
+                for tad_group in [x for _, x in sorted(zip(list(Counter(labels).values()), list(Counter(labels).keys())))][::-1][1:]:
                     tad_group_chromosome.append(np.where(labels == tad_group)[0])
                     predicted_tads[cell_line][source_information[0].split("-")[1]] = np.array(tad_group_chromosome)
 
@@ -420,8 +420,8 @@ def final_validation(parameters, model, dataloader_test, device, logger, run):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--path_parameters_json", help=" to JSON with parameters.", type=str, default='../tad_detection/model/parameters.json')
+    parser = argparse.ArgumentParser(description='Train and evaluate a model on dataset created in preprocessing pipeline.')
+    parser.add_argument("--path_parameters_json", help="path to JSON with parameters.", type=str, default='../tad_detection/model/parameters.json')
     args = parser.parse_args()
     path_parameters_json = args.path_parameters_json
     # path_parameters_json = "./tad_detection/model/parameters.json"

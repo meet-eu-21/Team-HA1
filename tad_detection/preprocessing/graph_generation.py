@@ -195,24 +195,36 @@ def graph_filtering(parameters, adjacency_matrices_list, adjacency_matrices_sour
     return adjacency_matrices_list_filtered
 
 
-def restrict_arrowhead_solution_list(arrowhead_solution_list, edge_index_list):
+def restrict_labels_solution_list(labels_solution_list, edge_index_list):
     '''
+    Function cuts off labels in labels_solution_list, if edge_index in edge_index_list is shorter than labels. This is the case when the last genomic bins in the adjacency matrix do not contain any vertices.
+
+    :param labels_solution_list: true labels separated for chromosomes and cell line
+    :param edge_index_list: edge index representation of adjacency_matrices_list separated for chromosomes and cell line, reports the nodes and the edges between the nodes present in a graph
+    :return labels_solution_list: true labels separated for chromosomes and cell line restricted by edge_index_list
     '''
 
-    for cell_line_index, (arrowhead_solution_list_cell_line, edge_index_list_cell_line) in enumerate(
-            zip(arrowhead_solution_list, edge_index_list)):
-        for chromosome_index, (arrowhead_solution_list_chromosome, edge_index_list_chromsome) in enumerate(
-                zip(arrowhead_solution_list_cell_line, edge_index_list_cell_line)):
-            arrowhead_solution_list[cell_line_index][chromosome_index] = arrowhead_solution_list_chromosome[:max(set(edge_index_list_chromsome[0]) | set(edge_index_list_chromsome[1]))+1] #min(set(edge_index_list_chromsome[0]) | set(edge_index_list_chromsome[1]))
+    for cell_line_index, (labels_solution_list_cell_line, edge_index_list_cell_line) in enumerate(
+            zip(labels_solution_list, edge_index_list)):
+        for chromosome_index, (labels_solution_list_chromosome, edge_index_list_chromsome) in enumerate(
+                zip(labels_solution_list_cell_line, edge_index_list_cell_line)):
+            labels_solution_list[cell_line_index][chromosome_index] = labels_solution_list_chromosome[:max(set(edge_index_list_chromsome[0]) | set(edge_index_list_chromsome[1]))+1]
 
-    return arrowhead_solution_list
+    return labels_solution_list
 
 def restrict_node_features_list(node_feature_list, edge_index_list):
+    '''
+    Function cuts off node_features in node_feature_list, if edge_index in edge_index_list is shorter than node_features. This is the case when the last genomic bins in the adjacency matrix do not contain any vertices.
+
+    :param node_feature_list: features of nodes in annotation matrices separated for chromosomes and cell line
+    :param edge_index_list: edge index representation of adjacency_matrices_list separated for chromosomes and cell line, reports the nodes and the edges between the nodes present in a graph
+    :return node_feature_list: features of nodes in annotation matrices separated for chromosomes and cell line restricted by edge_index_list
+    '''
 
     for cell_line_index, (node_feature_list_cell_line, edge_index_list_cell_line) in enumerate(
             zip(node_feature_list, edge_index_list)):
         for chromosome_index, (node_feature_list_chromosome, edge_index_list_chromsome) in enumerate(
                 zip(node_feature_list_cell_line, edge_index_list_cell_line)):
-            node_feature_list[cell_line_index][chromosome_index] = node_feature_list_chromosome[:max(set(edge_index_list_chromsome[0]) | set(edge_index_list_chromsome[1]))+1] #min(set(edge_index_list_chromsome[0]) | set(edge_index_list_chromsome[1]))
+            node_feature_list[cell_line_index][chromosome_index] = node_feature_list_chromosome[:max(set(edge_index_list_chromsome[0]) | set(edge_index_list_chromsome[1]))+1]
 
     return node_feature_list

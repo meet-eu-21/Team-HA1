@@ -1,34 +1,67 @@
 # Evaluation
 
-An exact description of the scripts to run the tools for benchmarking can be found in the folder ```./tools_benchmarking``` and the associated [README](tools_benchmarking/README.md).
+This folder contains the functions to evaluate the results of our model and benchmarking tools via among others TAD size calculation, statistical measures like the Jaccard index and Venn diagrams. An exact description of the scripts to run the tools for benchmarking can be found in the folder ```./tools_benchmarking``` and the associated [README](tools_benchmarking/README.md).
+The folder structure is shown below. The main scripts, which can be run independently, are marked. Below the purpose of each main script is discussed and it is described how to call each of these scripts.
 
-# Evaluation pipeline
+<pre>
+├── tad_detection
+│   ├── evaluation
+│   │   ├── tad_dicts
+│   │   ├── <b><em>evaluate.py</em></b>
+│   │   ├── parameters.json
+│   │   └── utils_evaluate.py
+</pre>
 
-To use the evaluation script please run ```evaluate.py``` with the argument ```--path_parameters_json```. We do provide a sample ```parameters.json``` file in the folder.
+In the folder tad_dicts, dictionaries containing the tad region information for different methods, cell lines, and resolutions can be found.
+The functions in ```utils_model.py``` are used as helper functions calculate the Jaccard index and further statistics, generate Venn-Diagrams and calculate the TAD region size.<br>
 
-## What the pipeline does:
 
-Generally, the evaluation script fulfills the following tasks:
+## Scripts
 
-1. Loading of TAD results: Loading of results from TAD calling tools like the ones we develop or Arrowhead or comparable tools. Here, the folder `./MeetEU/tad_detection/evaluation/results/` is important. It contains the TAD prediction results of different tools can be found. Currently, it contains the TADs called by Arrowhead (`Arrowhead_GM12878_100kb_dict.p`) and TopDom (`TopDom_GM12878_100kb_dict.p`). As soon as it is available we will add the corresponding .p file for our own tool. Also, we will add the results of another benchmarking tool, which should not be of interest for you, as this is a TAD calling tool using also a graph-based structure. The structure of the dict.p files is described in the appendix below. This is of interest of you, because you need to format your results in this structure, so you can run them through the pipeline.
-1. Venn-diagram visualization: For all inputted .p files the Venn-Diagramm of all methods together is created and saved.
-1. Jaccard index calculation: For all inputted .p files the Jaccard index between each of the .p files is calculated separately and saved.
-1. TAD region size calculation: Statistics on the size of TADs (Mean, Max, Min, quantiles) are calculated per chromosome and for all chromosomes together. The results are saved.
+### evaluate.py
 
-## Setting the parameters
+```
+usage: evaluate.py [-h] --path_parameters_json PATH_PARAMETERS_JSON
 
-The `parameters.json` file is your control center. To run the evaluation pipeline you need to adjust several parameters.
-We provide an overview about the parameters:
+Run evaluation pipeline on multiple experiments and comparing results by
+calculating statistics (Size TADs, Count TADs, Jaccard index etc.), creating
+Venn-Diagrams and Hi-C maps with TAD regions.
 
-1. "cell_line": The cell line for which you have run the TAD calling algorithm, e.g. GM12878
-1. "paths_predicted_tads_per_tad_prediction_methods"</li> The paths of .p files with your TAD calling results. Please replace the paths in the file with the exact paths of the files in the folder `./MeetEU/tad_detection/evaluation/results/`.
-1. "output_directory": Here outputs like the Venn-Diagrams and the statistics on the TAD region sizes are saved.
+optional arguments:
+  -h, --help            show this help message and exit
+  --path_parameters_json PATH_PARAMETERS_JSON
+                        path to JSON with parameters.
+```
 
-## Appendix:
+The results of this script are located in the given output directory.
 
-1. Structure of .p files: In the meeting you told us, that you may only have the boundaries of the TADs. The pipeline is currently not adapted to TADs, where only the boundaries are known. If this issue still consists on your side, please write us, so we can adapt the pipeline accordingly. At the moment, each method needs to have its own dict for each cell line. The dict is a nested dict:
-   ```python
-   {'methodnamestring': {'chrnumstring': [list of tad regions], 'chrnumstring': [list of tad regions]}}
-   ```
-3. If there are any questions please contact Lucas or Charlotte on Discord.
+## Parameters
 
+The ```parameters.json``` file contains the used parameters for the different functions in this folder.  In the parameters.json file several variables can be set, which will be described below:
+
+
+
+```
+parameters.json
+
+variables:
+  cell_line: cell line, for which evaluation script is performed (and which kind of data is inputted)
+                                                        "GM12878"
+  chromosomes: chromosomes, for which dataset in preprocessing.py or node annotations node_annotations.py or chromosome length dict in chr_len_dict.py should be created
+                                                        "all", ["1", "2", ...]
+  dataset_name: name of dataset
+                                                        "gm12878_no_filter_no_binary_graph_conv_supervised"
+  node_feature_encoding: genomic annotations used in dataset creation
+                                                        ["CTCF", "RAD21", "SMC3", "Number_HousekeepingGenes"]
+  output_directory: output directory of statistics and polts generated by evaluate.py
+                                                        "/Users/Charlotte/test_output_gnn_meeteu/"
+  paths_predicted_tads_per_tad_prediction_methods: paths of dictionaries with predicted TADs
+                                                        ["./tad_detection/evaluation/results/Arrowhead_GM12878_100kb_dict.p",
+                                                        "./tad_detection/evaluation/results/TopDom_GM12878_100kb_dict.p"]
+  path_topdom_bed: path to a bed file
+                                                        "./tad_detection/evaluation/tools_benchmarking/TopDomTests/bin/bintest.bed"
+  scaling_factor: resolution of Hi-C adjacency matrix
+                                                        25000, 100000
+  tad_prediction_methods: list of strings of the tad prediction methods to evaluate
+                                                        ["Arrowhead","TopDom"]
+```

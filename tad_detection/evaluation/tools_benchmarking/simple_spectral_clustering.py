@@ -7,7 +7,7 @@ sys.path.insert(1, './tad_detection/evaluation/')
 from sklearn.cluster import spectral_clustering
 from utils_general import load_parameters, set_up_logger
 from model.utils_model import set_up_neptune, load_data, split_data, torch_geometric_data_generation_dataloader, load_optimizer, save_model, calculation_graph_matrix_representation, save_tad_list
-from model.metrics import generate_metrics_plots, choose_optimal_n_clust, metrics_calculation
+from model.metrics import generate_metrics_plots, choose_optimal_n_clust, metrics_calculation_unsupervised
 import pandas as pd
 import os
 import time
@@ -47,18 +47,9 @@ def train(data, parameters):
             labels = spectral_clustering(X, n_clusters=n_clust, eigen_solver='arpack')
             end_time_baseline = time.time()
             time_list_baseline.append(start_time_baseline - end_time_baseline)
-            # Check whether result really is labels
 
-            if parameters["task_type"] == "unsupervised":
-                silhouette_score, silhouette_samples, calinski_harabasz_score, davies_bouldin_score, homogeneity_score, completeness_score, v_measure_score = metrics_calculation(parameters, X, labels)
-            elif parameters["task_type"] == "supvised":
-                silhouette_score, silhouette_samples, calinski_harabasz_score, davies_bouldin_score, homogeneity_score, completeness_score, v_measure_score = metrics_calculation(parameters, X, labels, labels_true)
-                homogeneity_score_list_baseline.append(homogeneity_score)
-                completeness_score_list_baseline.append(completeness_score)
-                v_measure_score_list_baseline.append(v_measure_score)
-
+            silhouette_score, calinski_harabasz_score, davies_bouldin_score = metrics_calculation_unsupervised(X, edge_index, edge_attr, labels)
             silhouette_score_list_baseline.append(silhouette_score)
-            silhouette_samples_list_baseline.append(silhouette_samples)
             calinski_harabasz_score_list_baseline.append(calinski_harabasz_score)
             davies_bouldin_score_list_baseline.append(davies_bouldin_score)
 
@@ -73,8 +64,8 @@ def train(data, parameters):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--path_parameters_json", help=" to JSON with parameters.", type=str, required=True)
+    parser = argparse.ArgumentParser(description='Run baseline experiment on spectral clustering of adjacency matrix without node annotations.')
+    parser.add_argument("--path_parameters_json", help="path to JSON with parameters.", type=str, required=True)
     args = parser.parse_args()
     path_parameters_json = args.path_parameters_json
 

@@ -272,8 +272,8 @@ def combine_genomic_annotations_and_housekeeping_genes(parameters, arrowhead_sol
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--path_parameters_json", help=" to JSON with parameters.", type=str, required=True)
+    parser = argparse.ArgumentParser(description='Create dictionaries of genomic annotations and occurrence of housekeeping genes for genomic bins used in preprocessing pipeline used for dataset creation.')
+    parser.add_argument("--path_parameters_json", help="path to JSON with parameters.", type=str, required=True)
     args = parser.parse_args()
     path_parameters_json = args.path_parameters_json
     #path_parameters_json = "./tad_detection/preprocessing/parameters.json"

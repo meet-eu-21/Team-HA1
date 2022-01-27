@@ -11,8 +11,9 @@ from utils_general import load_parameters
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--path_parameters_json", help=" to JSOn with parameters.", type=str, required=True)
+
+    parser = argparse.ArgumentParser(description='Create dictionary of chromosome lengths for usage in evaluation pipeline.')
+    parser.add_argument("--path_parameters_json", help="path to JSON with parameters.", type=str, required=True)
     args = parser.parse_args()
     path_parameters_json = args.path_parameters_json
     # path_parameters_json = "./tad_detection/preprocessing/parameters.json"

@@ -259,7 +259,7 @@ class GATConv(MessagePassing):
         if edge_attr is not None:
             if edge_attr.dim() == 1:
                 edge_attr = edge_attr.view(-1, 1)
-            assert self.lin_edge is not None ############## ARNOLDT
+            assert self.lin_edge is not None
             edge_attr = self.lin_edge(edge_attr)
             edge_attr = edge_attr.view(-1, self.heads, self.out_channels)
             x += edge_attr
