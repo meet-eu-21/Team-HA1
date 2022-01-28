@@ -17,16 +17,13 @@ Two approaches:
 <li>Unsupervised: no labels are provided to the model, and it determines whether regions belong to a TAD or not and aggregate them. Therefore, its main goal is to cluster single TAD regions together.</li>
 </ul>
 
-
+Further descriptions can be found in our [10 page report](Report_TeamHA1.pdf) or our [2 page digest](Digest_TeamHA1.pdf).
 
 ## Repository Structure 
 
 The folder structure of the repsoitory is shown below. The folders ```./TopResults```, ```./cmap_files```, ```./node_annotations``` and  ```./ressources``` contain files necessary for running the scripts in the folder ```./tad_detection```.
 
 <pre>
-├── TopResults
-│   └── 100kb100kb
-│       └── GM12878
 ├── cmap_files
 │   ├── 25kb
 │   │   ├── GM12878
@@ -46,8 +43,10 @@ The folder structure of the repsoitory is shown below. The folders ```./TopResul
 │   ├── model
 │   ├── preprocessing
 │   └── utils_general.py
+├── Digest_TeamHA1.pdf
 ├── LICENSE
 ├── README.md
+├── Report_TeamHA1.pdf
 └── environment.yml
 </pre>
 
