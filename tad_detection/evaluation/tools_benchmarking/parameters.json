@@ -1,0 +1,7 @@
+{
+  "cell_lines": ["NHEK","HMEC","GM12878","HUVEC","IMR90"],
+  "resolutions": ["100", "25"],
+  "inputpath": "/www.lcqb.upmc.fr/meetu/dataforstudent/HiC/",
+  "outputpath": "./TopDomResults/"
+}
+
