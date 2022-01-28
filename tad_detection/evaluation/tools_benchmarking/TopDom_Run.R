@@ -1,21 +1,19 @@
 #Download the TopDom package
-
-# getwd()
-# setwd("/home/charlotte/TopDom/R")   #set working directory to TopDom Package
-# source("TopDom_0.0.2.R")        # call on the script TopDom_0.0.2.R
-################## DASMUSST DU LOESEN
+# set be user
 setwd("/gpfs/bwfor/work/ws/hd_vu199-meeteu_files/TopDom_Results/")
+base_input_folder = "/gpfs/bwfor/work/ws/hd_vu199-meeteu_files/TopDom_Results/"
+base_output_folder = "/gpfs/bwfor/work/ws/hd_vu199-meeteu_files/TopDom_Results/"
 
+# RUN
 #INPUT EXAMPLE: "home/charlotte/adj_matrix_cell_Rline/resolution/resolution_chrnum_adj.csv"
 #OUTPUT EXAMPLE: "home/charlotte/TopDomResults/cell_line/resolution/resolution_chrnum"
+
 library("TopDom")
 
 resolutions = c("25kb", "100kb")
 cell_lines = c("HMEC", "HUVEC", "IMR90", "NHEK", "GM12878")
 ws = 5
 
-base_input_folder = "/gpfs/bwfor/work/ws/hd_vu199-meeteu_files/TopDom_Results/"
-base_output_folder = "/gpfs/bwfor/work/ws/hd_vu199-meeteu_files/TopDom_Results/"
 for (cell_line in cell_lines){
     sub_folder = paste("adj_matrix_", cell_line, sep="")
     cell_line_folder = paste(base_input_folder, sub_folder, sep="")
